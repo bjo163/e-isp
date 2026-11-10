@@ -250,8 +250,7 @@ fn build_device_list_query(
     site_id: Option<i64>,
     pop_id: Option<i64>,
 ) -> Select<devices::Entity> {
-    let mut query = devices::Entity::find()
-        .filter(devices::Column::TenantId.eq(tenant_id));
+    let mut query = devices::Entity::find().filter(devices::Column::TenantId.eq(tenant_id));
 
     if let Some(cursor) = cursor {
         query = query.filter(devices::Column::InventoryKey.gt(cursor.to_owned()));
@@ -308,7 +307,11 @@ async fn list_devices(
         Err(message) => return bad_request(message),
     };
 
-    if params.role.as_deref().is_some_and(|value| !valid_role(value)) {
+    if params
+        .role
+        .as_deref()
+        .is_some_and(|value| !valid_role(value))
+    {
         return bad_request("unsupported device role filter");
     }
     if params
@@ -716,7 +719,6 @@ pub fn routes() -> Routes {
         .add("/devices/{device_id}/interfaces", post(create_interface))
 }
 
-
 #[cfg(test)]
 mod device_list_query_tests {
     use super::*;
@@ -733,8 +735,14 @@ mod device_list_query_tests {
     #[test]
     fn device_list_cursor_accepts_only_valid_inventory_keys() {
         assert_eq!(device_list_cursor(None), Ok(None));
-        assert_eq!(device_list_cursor(Some("core-rtr-01")), Ok(Some("core-rtr-01")));
-        assert_eq!(device_list_cursor(Some("  core-rtr-01  ")), Ok(Some("core-rtr-01")));
+        assert_eq!(
+            device_list_cursor(Some("core-rtr-01")),
+            Ok(Some("core-rtr-01"))
+        );
+        assert_eq!(
+            device_list_cursor(Some("  core-rtr-01  ")),
+            Ok(Some("core-rtr-01"))
+        );
         assert!(device_list_cursor(Some("")).is_err());
         assert!(device_list_cursor(Some("bad cursor")).is_err());
         assert!(device_list_cursor(Some("key/with/slash")).is_err());
