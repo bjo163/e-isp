@@ -1,7 +1,7 @@
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
     ConnectionTrait, Database, DatabaseConnection,
-    sea_query::{Alias, Expr, Query},
+    sea_query::{Alias, Expr, ExprTrait, Query},
 };
 use uuid::Uuid;
 
