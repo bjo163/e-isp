@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,7 +40,7 @@ export default function LoginPage() {
   return (
     <main className="login-shell">
       <section className="login-panel">
-        <a className="login-brand" href="/" aria-label="e-ISP home">e<span>·</span>ISP</a>
+        <Link className="login-brand" href="/" aria-label="e-ISP home">e<span>·</span>ISP</Link>
         <div className="eyebrow"><span className="eyebrow-line" /> SECURE OPERATOR ACCESS</div>
         <h1 className="login-title">ENTER THE<br /><em>COMMAND</em> FLOOR.</h1>
         <p className="login-description">Sign in with an administrator-provisioned account. Public self-registration is disabled.</p>
