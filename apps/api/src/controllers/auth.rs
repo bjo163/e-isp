@@ -31,9 +31,10 @@ async fn login(State(ctx): State<AppContext>, Json(params): Json<LoginParams>) -
     }
 
     let jwt = ctx.config.get_jwt_config()?;
-    let token = user
-        .generate_jwt(&jwt.secret, jwt.expiration)
-        .map_err(|_| unauthorized("authentication failed"))?;
+    let token = match user.generate_jwt(&jwt.secret, jwt.expiration) {
+        Ok(token) => token,
+        Err(_) => return unauthorized("authentication failed"),
+    };
 
     format::json(LoginResponse {
         token,
