@@ -209,6 +209,34 @@ async fn device_response(
     })
 }
 
+fn device_list_limit(value: Option<usize>) -> std::result::Result<usize, &'static str> {
+    let limit = value.unwrap_or(50);
+    if (1..=100).contains(&limit) {
+        Ok(limit)
+    } else {
+        Err("limit must be between 1 and 100")
+    }
+}
+
+fn device_list_cursor(value: Option<&str>) -> std::result::Result<Option<&str>, &'static str> {
+    match value {
+        Some(cursor) if valid_inventory_key(cursor) => Ok(Some(cursor.trim())),
+        Some(_) => Err("after must be a valid inventory_key cursor"),
+        None => Ok(None),
+    }
+}
+
+fn device_search_term(value: Option<&str>) -> std::result::Result<Option<&str>, &'static str> {
+    match value {
+        Some(query) if query.trim().len() <= 120 => {
+            let trimmed = query.trim();
+            Ok((!trimmed.is_empty()).then_some(trimmed))
+        }
+        Some(_) => Err("q must be at most 120 characters"),
+        None => Ok(None),
+    }
+}
+
 async fn list_devices(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
@@ -220,24 +248,17 @@ async fn list_devices(
         Err(()) => return forbidden("tenant access denied"),
     };
 
-    let limit = params.limit.unwrap_or(50);
-    if !(1..=100).contains(&limit) {
-        return bad_request("limit must be between 1 and 100");
-    }
-
-    let cursor = match params.after.as_deref() {
-        Some(value) if valid_inventory_key(value) => Some(value.trim()),
-        Some(_) => return bad_request("after must be a valid inventory_key cursor"),
-        None => None,
+    let limit = match device_list_limit(params.limit) {
+        Ok(value) => value,
+        Err(message) => return bad_request(message),
     };
-
-    let search = match params.q.as_deref() {
-        Some(value) if value.trim().len() <= 120 => {
-            let trimmed = value.trim();
-            (!trimmed.is_empty()).then_some(trimmed)
-        }
-        Some(_) => return bad_request("q must be at most 120 characters"),
-        None => None,
+    let cursor = match device_list_cursor(params.after.as_deref()) {
+        Ok(value) => value,
+        Err(message) => return bad_request(message),
+    };
+    let search = match device_search_term(params.q.as_deref()) {
+        Ok(value) => value,
+        Err(message) => return bad_request(message),
     };
 
     if params.role.as_deref().is_some_and(|value| !valid_role(value)) {
@@ -654,4 +675,47 @@ pub fn routes() -> Routes {
         .add("/devices/{device_id}", get(get_device))
         .add("/devices/{device_id}/interfaces", get(list_interfaces))
         .add("/devices/{device_id}/interfaces", post(create_interface))
+}
+
+
+#[cfg(test)]
+mod device_list_query_tests {
+    use super::*;
+
+    #[test]
+    fn device_list_limit_defaults_and_enforces_bounds() {
+        assert_eq!(device_list_limit(None), Ok(50));
+        assert_eq!(device_list_limit(Some(1)), Ok(1));
+        assert_eq!(device_list_limit(Some(100)), Ok(100));
+        assert!(device_list_limit(Some(0)).is_err());
+        assert!(device_list_limit(Some(101)).is_err());
+    }
+
+    #[test]
+    fn device_list_cursor_accepts_only_valid_inventory_keys() {
+        assert_eq!(device_list_cursor(None), Ok(None));
+        assert_eq!(device_list_cursor(Some("core-rtr-01")), Ok(Some("core-rtr-01")));
+        assert_eq!(device_list_cursor(Some("  core-rtr-01  ")), Ok(Some("core-rtr-01")));
+        assert!(device_list_cursor(Some("")).is_err());
+        assert!(device_list_cursor(Some("bad cursor")).is_err());
+        assert!(device_list_cursor(Some("key/with/slash")).is_err());
+    }
+
+    #[test]
+    fn device_search_term_trims_and_bounds_input() {
+        assert_eq!(device_search_term(None), Ok(None));
+        assert_eq!(device_search_term(Some("   ")), Ok(None));
+        assert_eq!(device_search_term(Some(" core ")), Ok(Some("core")));
+        assert!(device_search_term(Some(&"x".repeat(121))).is_err());
+    }
+
+    #[test]
+    fn list_filter_values_match_supported_inventory_enums() {
+        assert!(valid_role("router"));
+        assert!(valid_role("olt"));
+        assert!(!valid_role("modem"));
+        assert!(valid_lifecycle("active"));
+        assert!(valid_lifecycle("maintenance"));
+        assert!(!valid_lifecycle("online"));
+    }
 }
