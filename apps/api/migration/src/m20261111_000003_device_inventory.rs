@@ -115,9 +115,10 @@ impl MigrationTrait for Migration {
                 vec!["device_id", "stable_key"],
             ),
         ] {
-            let mut index = Index::create().name(name).table(table);
+            let mut index = Index::create();
+            index.name(name).table(table);
             for column in columns {
-                index = index.col(Alias::new(column));
+                index.col(Alias::new(column));
             }
             manager.create_index(index.unique().to_owned()).await?;
         }
