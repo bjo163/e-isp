@@ -423,10 +423,7 @@ async fn get_pop(
     let Some(public_id) = parse_public_id(&raw_id) else {
         return not_found();
     };
-    let Some(pop) = pop_query(scope.tenant_id(), public_id)
-        .one(&ctx.db)
-        .await?
-    else {
+    let Some(pop) = pop_query(scope.tenant_id(), public_id).one(&ctx.db).await? else {
         return not_found();
     };
 
@@ -521,7 +518,6 @@ pub fn routes() -> Routes {
         .add("/pops", post(create_pop))
         .add("/pops/{pop_id}", get(get_pop))
 }
-
 
 #[cfg(test)]
 mod location_detail_query_tests {
