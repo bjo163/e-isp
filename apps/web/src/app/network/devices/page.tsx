@@ -30,6 +30,7 @@ interface DeviceListResponse {
 }
 
 interface DeviceFilters {
+  tenant?: string;
   q?: string;
   role?: string;
   lifecycle_status?: string;
