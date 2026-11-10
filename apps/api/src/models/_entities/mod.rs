@@ -1,3 +1,6 @@
+pub mod device_interfaces;
+pub mod device_models;
+pub mod devices;
 pub mod memberships;
 pub mod organizations;
 pub mod pops;
@@ -5,3 +8,4 @@ pub mod regions;
 pub mod sites;
 pub mod tenants;
 pub mod users;
+pub mod vendors;
