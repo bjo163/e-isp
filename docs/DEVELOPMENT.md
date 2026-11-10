@@ -67,6 +67,7 @@ Implemented routes:
 | POST | `/api/v1/network/pops` | owner / admin / network_admin |
 | GET | `/api/v1/network/sites/{site_id}` | Active tenant membership |
 | GET | `/api/v1/network/pops/{pop_id}` | Active tenant membership |
+| GET | `/api/v1/network/sites/{site_id}` | Active tenant membership |
 
 List endpoints currently return at most 500 records. Cursor pagination, update/delete operations, catalog management, and the full permission catalog remain follow-up work. The device page supports tenant selection when a user belongs to multiple tenants; device creation/edit UI is not yet implemented.
 
@@ -100,6 +101,9 @@ Example device request:
 Supported initial roles: `router`, `switch`, `firewall`, `olt`, `server`, `wireless`, `other`. Lifecycle values: `planned`, `active`, `maintenance`, `retired`. Vendor/model references are optional while the catalog is not yet managed through an API. Management addresses are validated as IPv4 or IPv6.
 
 Interfaces require a stable operator-defined `stable_key`. `if_index` is optional observed identity and must not be treated as permanent. New interface admin and operational states are `unknown`; no telemetry is fabricated. Device lists use an opaque `after` cursor based on the tenant-unique `inventory_key`; results are ordered ascending by that key and do not use OFFSET. The response shape is `{ items, page: { limit, next_cursor, has_more } }`. Interface lists remain bounded to 500 rows. The smoke-test coverage for these tables is part of the PostgreSQL 17 clean-database CI job.
+
+
+The Next.js operator UI includes tenant-scoped read-only pages at `/network/sites`, `/network/sites/{site_id}`, `/network/pops`, `/network/pops/{pop_id}`, and `/network/devices/{device_id}`. The device detail page has Summary and Interfaces views. All detail routes use the selected tenant context and the Loco API; interface operational state remains `unknown` until collector observations exist.
 
 ## Docker Compose
 
