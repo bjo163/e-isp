@@ -25,7 +25,7 @@ async fn insert_and_get_id(
 }
 
 #[tokio::test]
-async fn fresh_postgres_database_accepts_identity_and_network_location_schema()
+async fn fresh_postgres_database_accepts_identity_network_and_device_inventory_schema()
 -> Result<(), Box<dyn std::error::Error>> {
     let Ok(database_url) = std::env::var("TEST_DATABASE_URL") else {
         // Local unit-test runs without PostgreSQL keep working. CI always sets this.
@@ -94,7 +94,6 @@ async fn fresh_postgres_database_accepts_identity_and_network_location_schema()
         "INSERT INTO pops (public_id, tenant_id, site_id, name, slug, pop_type, status) VALUES ('{pop_public_id}', {tenant_id}, {site_id}, 'Core POP', '{pop_slug}', 'core', 'active')"
     );
     db.execute_unprepared(&pop_sql).await?;
-
 
     let vendor_public_id = Uuid::new_v4();
     let vendor_slug = format!("vendor-{suffix}");
