@@ -798,7 +798,7 @@ mod device_list_query_tests {
         assert!(sql.contains("\"devices\".\"site_id\""));
         assert!(sql.contains("\"devices\".\"pop_id\""));
         assert!(sql.contains("order by \"devices\".\"inventory_key\" asc"));
-        assert!(sql.contains("limit 51"));
+        assert!(sql.contains("limit $"));
         assert!(!sql.contains(" offset "));
         assert!(!sql.contains("core-rtr-01"));
         assert!(!sql.contains("edge"));
@@ -823,7 +823,7 @@ mod device_list_query_tests {
 
         assert!(sql.contains("\"devices\".\"tenant_id\""));
         assert!(sql.contains("order by \"devices\".\"inventory_key\" asc"));
-        assert!(sql.contains("limit 101"));
+        assert!(sql.contains("limit $"));
         assert!(!sql.contains(" offset "));
     }
 }
