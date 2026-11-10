@@ -8,10 +8,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
 };
 use loco_rs::{Error, controller::ErrorDetail, prelude::*};
-use sea_orm::{
-    ActiveValue, ColumnTrait, Condition, DbBackend, EntityTrait, QueryFilter, QueryOrder,
-    QueryTrait, Select,
-};
+use sea_orm::{ActiveValue, ColumnTrait, Condition, EntityTrait, QueryFilter, QueryOrder, Select};
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use uuid::Uuid;
@@ -240,28 +237,32 @@ fn device_search_term(value: Option<&str>) -> std::result::Result<Option<&str>, 
     }
 }
 
-fn build_device_list_query(
-    tenant_id: i64,
+struct DeviceQueryFilters<'a> {
     limit: usize,
-    cursor: Option<&str>,
-    search: Option<&str>,
-    role: Option<&str>,
-    lifecycle_status: Option<&str>,
+    cursor: Option<&'a str>,
+    search: Option<&'a str>,
+    role: Option<&'a str>,
+    lifecycle_status: Option<&'a str>,
     site_id: Option<i64>,
     pop_id: Option<i64>,
+}
+
+fn build_device_list_query(
+    tenant_id: i64,
+    filters: DeviceQueryFilters<'_>,
 ) -> Select<devices::Entity> {
     let mut query = devices::Entity::find().filter(devices::Column::TenantId.eq(tenant_id));
 
-    if let Some(cursor) = cursor {
+    if let Some(cursor) = filters.cursor {
         query = query.filter(devices::Column::InventoryKey.gt(cursor.to_owned()));
     }
-    if let Some(role) = role {
+    if let Some(role) = filters.role {
         query = query.filter(devices::Column::DeviceRole.eq(role.to_owned()));
     }
-    if let Some(status) = lifecycle_status {
+    if let Some(status) = filters.lifecycle_status {
         query = query.filter(devices::Column::LifecycleStatus.eq(status.to_owned()));
     }
-    if let Some(search) = search {
+    if let Some(search) = filters.search {
         let search = search.to_owned();
         query = query.filter(
             Condition::any()
@@ -271,16 +272,16 @@ fn build_device_list_query(
                 .add(devices::Column::ManagementAddress.contains(search)),
         );
     }
-    if let Some(site_id) = site_id {
+    if let Some(site_id) = filters.site_id {
         query = query.filter(devices::Column::SiteId.eq(site_id));
     }
-    if let Some(pop_id) = pop_id {
+    if let Some(pop_id) = filters.pop_id {
         query = query.filter(devices::Column::PopId.eq(pop_id));
     }
 
     query
         .order_by_asc(devices::Column::InventoryKey)
-        .limit((limit + 1) as u64)
+        .limit((filters.limit + 1) as u64)
 }
 
 async fn list_devices(
@@ -360,13 +361,15 @@ async fn list_devices(
 
     let query = build_device_list_query(
         scope.tenant_id(),
-        limit,
-        cursor,
-        search,
-        params.role.as_deref(),
-        params.lifecycle_status.as_deref(),
-        site_id,
-        pop_id,
+        DeviceQueryFilters {
+            limit,
+            cursor,
+            search,
+            role: params.role.as_deref(),
+            lifecycle_status: params.lifecycle_status.as_deref(),
+            site_id,
+            pop_id,
+        },
     );
 
     let mut rows = query
@@ -722,6 +725,7 @@ pub fn routes() -> Routes {
 #[cfg(test)]
 mod device_list_query_tests {
     use super::*;
+    use sea_orm::{DbBackend, QueryTrait};
 
     #[test]
     fn device_list_limit_defaults_and_enforces_bounds() {
@@ -770,13 +774,15 @@ mod device_list_query_tests {
     fn device_query_uses_tenant_keyset_filters_and_bounded_ordered_limit() {
         let statement = build_device_list_query(
             42,
-            50,
-            Some("core-rtr-01"),
-            Some("edge"),
-            Some("router"),
-            Some("active"),
-            Some(7),
-            Some(9),
+            DeviceQueryFilters {
+                limit: 50,
+                cursor: Some("core-rtr-01"),
+                search: Some("edge"),
+                role: Some("router"),
+                lifecycle_status: Some("active"),
+                site_id: Some(7),
+                pop_id: Some(9),
+            },
         )
         .build(DbBackend::Postgres);
         let sql = statement.sql.to_lowercase();
@@ -800,8 +806,19 @@ mod device_list_query_tests {
 
     #[test]
     fn device_query_without_optional_filters_still_scopes_tenant() {
-        let statement = build_device_list_query(17, 100, None, None, None, None, None, None)
-            .build(DbBackend::Postgres);
+        let statement = build_device_list_query(
+            17,
+            DeviceQueryFilters {
+                limit: 100,
+                cursor: None,
+                search: None,
+                role: None,
+                lifecycle_status: None,
+                site_id: None,
+                pop_id: None,
+            },
+        )
+        .build(DbBackend::Postgres);
         let sql = statement.sql.to_lowercase();
 
         assert!(sql.contains("\"devices\".\"tenant_id\""));
