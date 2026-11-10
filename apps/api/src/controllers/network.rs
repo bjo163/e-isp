@@ -267,7 +267,7 @@ async fn create_site(
             .await?;
         match region {
             Some(region) => (Some(region.id), Some(region.public_id.to_string())),
-            None => return not_found("region not found in active tenant"),
+            None => return not_found(),
         }
     } else {
         (None, None)
