@@ -116,3 +116,32 @@ Not yet implemented:
 - Production backup/restore drills, retention, load testing, HA, and operational runbooks.
 
 Do not present planned or scaffold-only modules as operational features. Use [the master execution board](https://github.com/bjo163/e-isp/issues/110) for the detailed issue-by-issue delivery plan.
+
+## Device and interface inventory API
+
+The device inventory API uses the same active tenant membership check as region/site/POP operations. Send the tenant public UUID in `X-Tenant-ID`; the API resolves it against the authenticated user. Inventory writes require the initial owner/admin/network_admin role policy.
+
+- `GET /api/v1/network/devices` — list up to 500 devices in the tenant.
+- `POST /api/v1/network/devices` — create an operator-managed inventory record.
+- `GET /api/v1/network/devices/{device_id}` — retrieve a device by public UUID.
+- `GET /api/v1/network/devices/{device_id}/interfaces` — list up to 500 interfaces.
+- `POST /api/v1/network/devices/{device_id}/interfaces` — add an interface inventory record.
+
+Example device request:
+
+```json
+{
+  "inventory_key": "core-rtr-01",
+  "name": "Core Router 01",
+  "hostname": "core-rtr-01.isp.example",
+  "management_address": "192.0.2.10",
+  "device_role": "router",
+  "lifecycle_status": "active",
+  "site_id": "SITE_PUBLIC_UUID",
+  "pop_id": "POP_PUBLIC_UUID"
+}
+```
+
+Supported initial device roles: `router`, `switch`, `firewall`, `olt`, `server`, `wireless`, `other`. Lifecycle values: `planned`, `active`, `maintenance`, `retired`. Vendor/model references are optional until a vendor catalog is populated. Management addresses are validated as IPv4 or IPv6.
+
+Interface records use a stable operator-defined `stable_key`; `if_index` is an optional observed identifier and must not be treated as permanent identity. Newly created interfaces start with admin and operational state `unknown`; no collector telemetry is fabricated. Device list and interface list are currently bounded to 500 rows; cursor pagination is still pending.

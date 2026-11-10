@@ -65,6 +65,6 @@ List endpoints currently return at most 500 records. Writes require owner/admin/
 
 ## Current status
 
-Implemented: Loco API foundation, PostgreSQL identity/organization/tenant/membership schema, password login and current-user APIs, administrator bootstrap task, Next.js HttpOnly session bridge, and sign-in screen.
+Implemented: Loco API foundation, PostgreSQL identity/organization/tenant/membership schema, password login and current-user APIs, administrator bootstrap task, Next.js HttpOnly session bridge/sign-in screen, tenant-scoped region/site/POP APIs, device/interface inventory APIs, and a live Network Devices page.
 
-Still pending: full RBAC permissions, tenant-scoped network inventory CRUD, collectors, protocol polling, telemetry ingestion, topology, incidents, ISP/FTTH integrations, controlled network automation, and production hardening. Do not treat planned modules as operational features.
+Still pending: full RBAC permission catalog, vendor/model catalog management, inventory update/delete and cursor pagination, network discovery, collectors/protocol polling, telemetry ingestion, topology, incidents, ISP/FTTH integrations, controlled network automation, and production hardening. Do not treat planned modules as operational features.
