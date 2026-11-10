@@ -50,8 +50,14 @@ impl MigrationTrait for Migration {
                 ("hostname", ColType::StringNull),
                 ("management_address", ColType::StringNull),
                 ("serial_number", ColType::StringNull),
-                ("device_role", ColType::StringWithDefault("other".to_owned())),
-                ("lifecycle_status", ColType::StringWithDefault("planned".to_owned())),
+                (
+                    "device_role",
+                    ColType::StringWithDefault("other".to_owned()),
+                ),
+                (
+                    "lifecycle_status",
+                    ColType::StringWithDefault("planned".to_owned()),
+                ),
             ],
             &[
                 ("tenants", "tenant_id"),
@@ -75,18 +81,39 @@ impl MigrationTrait for Migration {
                 ("if_index", ColType::IntegerNull),
                 ("name", ColType::String),
                 ("description", ColType::StringNull),
-                ("interface_type", ColType::StringWithDefault("unknown".to_owned())),
-                ("admin_state", ColType::StringWithDefault("unknown".to_owned())),
-                ("operational_state", ColType::StringWithDefault("unknown".to_owned())),
+                (
+                    "interface_type",
+                    ColType::StringWithDefault("unknown".to_owned()),
+                ),
+                (
+                    "admin_state",
+                    ColType::StringWithDefault("unknown".to_owned()),
+                ),
+                (
+                    "operational_state",
+                    ColType::StringWithDefault("unknown".to_owned()),
+                ),
             ],
             &[("tenants", "tenant_id"), ("devices", "device_id")],
         )
         .await?;
 
         for (name, table, columns) in [
-            ("uq_device_models_vendor_code", "device_models", vec!["vendor_id", "model_code"]),
-            ("uq_devices_tenant_inventory_key", "devices", vec!["tenant_id", "inventory_key"]),
-            ("uq_device_interfaces_device_stable_key", "device_interfaces", vec!["device_id", "stable_key"]),
+            (
+                "uq_device_models_vendor_code",
+                "device_models",
+                vec!["vendor_id", "model_code"],
+            ),
+            (
+                "uq_devices_tenant_inventory_key",
+                "devices",
+                vec!["tenant_id", "inventory_key"],
+            ),
+            (
+                "uq_device_interfaces_device_stable_key",
+                "device_interfaces",
+                vec!["device_id", "stable_key"],
+            ),
         ] {
             let mut index = Index::create().name(name).table(table);
             for column in columns {
@@ -124,7 +151,10 @@ impl MigrationTrait for Migration {
         for (name, table) in [
             ("idx_devices_tenant_pop", "devices"),
             ("idx_devices_tenant_site", "devices"),
-            ("uq_device_interfaces_device_stable_key", "device_interfaces"),
+            (
+                "uq_device_interfaces_device_stable_key",
+                "device_interfaces",
+            ),
             ("uq_devices_tenant_inventory_key", "devices"),
             ("uq_device_models_vendor_code", "device_models"),
         ] {
