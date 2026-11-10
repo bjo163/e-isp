@@ -1,13 +1,16 @@
 use async_trait::async_trait;
 use loco_rs::{
+    Result,
     app::{AppContext, Hooks},
-    boot::{create_app, BootResult, StartMode},
+    bgworker::Queue,
+    boot::{BootResult, StartMode, create_app},
     config::Config,
     controller::AppRoutes,
     environment::Environment,
-    Result,
+    task::Tasks,
 };
 use migration::Migrator;
+use std::path::Path;
 
 use crate::controllers;
 
@@ -37,5 +40,19 @@ impl Hooks for App {
 
     fn routes(_ctx: &AppContext) -> AppRoutes {
         AppRoutes::with_default_routes().add_route(controllers::system::routes())
+    }
+
+    async fn connect_workers(_ctx: &AppContext, _queue: &Queue) -> Result<()> {
+        Ok(())
+    }
+
+    fn register_tasks(_tasks: &mut Tasks) {}
+
+    async fn truncate(_ctx: &AppContext) -> Result<()> {
+        Ok(())
+    }
+
+    async fn seed(_ctx: &AppContext, _base: &Path) -> Result<()> {
+        Ok(())
     }
 }

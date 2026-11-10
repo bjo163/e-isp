@@ -37,7 +37,7 @@ async fn health() -> Result<Response> {
 
 pub fn routes() -> Routes {
     Routes::new()
-        .prefix("api/v1/system")
+        .prefix("/api/v1/system")
         .add("/info", get(info))
         .add("/health", get(health))
 }
