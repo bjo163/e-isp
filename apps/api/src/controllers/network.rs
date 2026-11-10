@@ -71,7 +71,8 @@ fn forbidden(message: &str) -> Result<Response> {
         ErrorDetail::new("forbidden", message),
     ))
 }
-\nfn request_tenant_id(headers: &HeaderMap) -> std::result::Result<Uuid, ()> {
+
+fn request_tenant_id(headers: &HeaderMap) -> std::result::Result<Uuid, ()> {
     let raw = headers
         .get("x-tenant-id")
         .ok_or(())?
