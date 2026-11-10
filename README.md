@@ -56,7 +56,7 @@ The blueprint owns architecture decisions; child issues own bounded implementati
 
 ## Network inventory API
 
-Network location operations require a signed-in user and an active tenant membership. Send the tenant public UUID in the `X-Tenant-ID` header; the API verifies that the authenticated user is an active member before querying or writing tenant-owned rows.
+Network location and device inventory operations require a signed-in user and an active tenant membership. Send the tenant public UUID in the `X-Tenant-ID` header; the API verifies that the authenticated user is an active member before querying or writing tenant-owned rows.
 
 - `GET /api/v1/network/regions`
 - `POST /api/v1/network/regions`
@@ -64,11 +64,16 @@ Network location operations require a signed-in user and an active tenant member
 - `POST /api/v1/network/sites`
 - `GET /api/v1/network/pops`
 - `POST /api/v1/network/pops`
+- `GET /api/v1/network/devices`
+- `POST /api/v1/network/devices`
+- `GET /api/v1/network/devices/{device_id}`
+- `GET /api/v1/network/devices/{device_id}/interfaces`
+- `POST /api/v1/network/devices/{device_id}/interfaces`
 
-List endpoints currently return at most 500 records. Writes require owner/admin/network_admin membership roles. Cursor pagination and the complete permission catalog remain follow-up work.
+Device and interface records are operator-managed inventory; newly created interface operational state remains `unknown` until real collector evidence exists. List endpoints currently return at most 500 records. Writes require owner/admin/network_admin membership roles. Vendor/model catalog management, cursor pagination, update/delete operations, and the complete permission catalog remain follow-up work.
 
 ## Current status
 
-Implemented: Loco API foundation, PostgreSQL identity/organization/tenant/membership schema, password login and current-user APIs, administrator bootstrap task, Next.js HttpOnly session bridge, and sign-in screen.
+Implemented: Loco API foundation, PostgreSQL identity/organization/tenant/membership/location/device inventory schema, password login and current-user APIs, secure administrator bootstrap task, tenant-scoped region/site/POP/device/interface APIs, Next.js HttpOnly session bridge, sign-in screen, command center, and read-only Network Devices page.
 
-Still pending: full RBAC permissions, tenant-scoped network inventory CRUD, collectors, protocol polling, telemetry ingestion, topology, incidents, ISP/FTTH integrations, controlled network automation, and production hardening. Do not treat planned modules as operational features.
+Still pending: full RBAC permissions and tenant administration UI, vendor/model catalog management, inventory update/delete and cursor pagination, network discovery, collector registration and protocol polling, telemetry ingestion, topology, incidents, ISP/FTTH integrations, controlled network automation, and production hardening. Do not treat planned modules as operational features.

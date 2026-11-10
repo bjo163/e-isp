@@ -26,14 +26,13 @@ Public self-registration is intentionally disabled. Create the first user, organ
 cargo loco task admin:create \
   email:admin@example.com \
   name:Administrator \
-  password:'replace-this-with-a-long-unique-password' \
   organization:'Example ISP' \
   tenant:Production \
   org_slug:example-isp \
   tenant_slug:production
 ```
 
-Use a unique password with at least 12 characters. Avoid sharing terminal history or logs containing the password argument. After the task succeeds, sign in at `http://localhost:3000/login`.
+The task reads the password from `EISP_ADMIN_PASSWORD` rather than a command-line argument. Use the silent, one-process prompt shown in [Secure initial administrator provisioning](#secure-initial-administrator-provisioning) below. Choose a unique password of at least 12 characters. After the task succeeds, sign in at `http://localhost:3000/login`.
 
 The Next.js application exchanges credentials with the Loco API and stores the returned JWT in an HttpOnly, SameSite=Lax cookie. The browser does not receive the raw token in the login response. The current-user API returns the user's active tenant memberships.
 
@@ -67,7 +66,38 @@ Implemented routes:
 | GET | `/api/v1/network/pops` | Active tenant membership |
 | POST | `/api/v1/network/pops` | owner / admin / network_admin |
 
-List endpoints currently return at most 500 records. Cursor pagination, update/delete operations, and the full permission catalog remain follow-up work. The current frontend shows the authenticated operator and tenant count; tenant selection and dedicated location CRUD screens are not yet implemented.
+List endpoints currently return at most 500 records. Cursor pagination, update/delete operations, catalog management, and the full permission catalog remain follow-up work. The device page supports tenant selection when a user belongs to multiple tenants; device creation/edit UI is not yet implemented.
+
+## Tenant-aware device and interface inventory API
+
+The inventory endpoints use the same authenticated user and active tenant membership check as region/site/POP operations. Every request must include the tenant public UUID in `X-Tenant-ID`.
+
+| Method | Route | Permission |
+|---|---|---|
+| GET | `/api/v1/network/devices` | Active tenant membership |
+| POST | `/api/v1/network/devices` | owner / admin / network_admin |
+| GET | `/api/v1/network/devices/{device_id}` | Active tenant membership |
+| GET | `/api/v1/network/devices/{device_id}/interfaces` | Active tenant membership |
+| POST | `/api/v1/network/devices/{device_id}/interfaces` | owner / admin / network_admin |
+
+Example device request:
+
+```json
+{
+  "inventory_key": "core-rtr-01",
+  "name": "Core Router 01",
+  "hostname": "core-rtr-01.isp.example",
+  "management_address": "192.0.2.10",
+  "device_role": "router",
+  "lifecycle_status": "active",
+  "site_id": "SITE_PUBLIC_UUID",
+  "pop_id": "POP_PUBLIC_UUID"
+}
+```
+
+Supported initial roles: `router`, `switch`, `firewall`, `olt`, `server`, `wireless`, `other`. Lifecycle values: `planned`, `active`, `maintenance`, `retired`. Vendor/model references are optional while the catalog is not yet managed through an API. Management addresses are validated as IPv4 or IPv6.
+
+Interfaces require a stable operator-defined `stable_key`. `if_index` is optional observed identity and must not be treated as permanent. New interface admin and operational states are `unknown`; no telemetry is fabricated. Device and interface lists are bounded to 500 rows until cursor pagination is delivered.
 
 ## Docker Compose
 
@@ -94,7 +124,7 @@ npm run typecheck --workspace @e-isp/web
 npm run build --workspace @e-isp/web
 ```
 
-CI runs the Rust formatting/check/lint/test commands and the Next.js lint/typecheck/build commands. A PostgreSQL migration integration test is being added to CI; treat schema readiness as unverified until that test passes on the current commit.
+CI runs the Rust formatting/check/lint/test commands and the Next.js lint/typecheck/build commands. CI includes a PostgreSQL 17 clean-database migration integration test covering identity, tenant, network location, and device inventory schema, including key uniqueness constraints.
 
 ## Current implementation boundary
 
@@ -104,12 +134,13 @@ Implemented in the current repository:
 - Password sign-in, JWT current-user endpoint, and administrator bootstrap task.
 - Tenant-context resolution that checks active membership and organization.
 - Tenant-scoped region/site/POP list and create APIs.
-- Next.js sign-in flow, HttpOnly session bridge, and operational overview shell.
+- Tenant-scoped vendor/model/device/interface inventory schema and device/interface list/create APIs.
+- Next.js sign-in flow, HttpOnly session bridge, operational overview shell, and read-only device register page.
 - Local Docker Compose stack and CI baseline.
 
 Not yet implemented:
 - Full permission catalog/custom RBAC and tenant administration UI.
-- Inventory beyond regions/sites/POPs (vendors, devices, interfaces, credentials, discovery).
+- Vendor/model catalog management, inventory update/delete, cursor pagination, credential assignment, and discovery.
 - Collector registration/heartbeat, polling scheduler, SNMP/ICMP/gNMI/NETCONF/SSH/BGP adapters.
 - NATS event transport, TSDB metrics ingestion/query, alert evaluation, topology, incidents.
 - Subscriber/RADIUS/DHCP/BNG, FTTH optical/GIS, SLA reporting.

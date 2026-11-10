@@ -4,6 +4,7 @@ pub use sea_orm_migration::prelude::*;
 
 mod m20261111_000001_identity_tenancy;
 mod m20261111_000002_network_locations;
+mod m20261111_000003_device_inventory;
 
 pub struct Migrator;
 
@@ -13,6 +14,7 @@ impl MigratorTrait for Migrator {
         vec![
             Box::new(m20261111_000001_identity_tenancy::Migration),
             Box::new(m20261111_000002_network_locations::Migration),
+            Box::new(m20261111_000003_device_inventory::Migration),
         ]
     }
 }
