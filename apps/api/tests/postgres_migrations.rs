@@ -68,8 +68,7 @@ async fn fresh_postgres_database_accepts_identity_and_network_location_schema()
     let tenant_sql = format!(
         "INSERT INTO tenants (public_id, organization_id, name, slug, is_active) VALUES ('{tenant_public_id}', {organization_id}, 'Production', '{tenant_slug}', TRUE)"
     );
-    let tenant_id =
-        insert_and_get_id(&db, "tenants", tenant_public_id, &tenant_sql).await?;
+    let tenant_id = insert_and_get_id(&db, "tenants", tenant_public_id, &tenant_sql).await?;
 
     let region_public_id = Uuid::new_v4();
     let region_slug = format!("region-{suffix}");
