@@ -65,7 +65,13 @@ struct PopResponse {
     status: String,
 }
 
-fn forbidden(message: &str) -> Result<Response> {\n    Err(Error::CustomError(\n        StatusCode::FORBIDDEN,\n        ErrorDetail::new("forbidden", message),\n    ))\n}\n\nfn request_tenant_id(headers: &HeaderMap) -> std::result::Result<Uuid, ()> {
+fn forbidden(message: &str) -> Result<Response> {
+    Err(Error::CustomError(
+        StatusCode::FORBIDDEN,
+        ErrorDetail::new("forbidden", message),
+    ))
+}
+\nfn request_tenant_id(headers: &HeaderMap) -> std::result::Result<Uuid, ()> {
     let raw = headers
         .get("x-tenant-id")
         .ok_or(())?
