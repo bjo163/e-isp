@@ -14,14 +14,14 @@ impl Task for AdminCreate {
     fn task(&self) -> TaskInfo {
         TaskInfo {
             name: "admin:create".to_owned(),
-            detail: "Create the first e-ISP administrator and its initial organization/tenant. Usage: cargo loco task admin:create email:admin@example.com name:Administrator password:<12+ chars> organization:Example tenant:Production org_slug:example tenant_slug:production".to_owned(),
+            detail: "Create the first e-ISP administrator and its initial organization/tenant. Set EISP_ADMIN_PASSWORD in the environment, then run: cargo loco task admin:create email:admin@example.com name:Administrator organization:Example tenant:Production org_slug:example tenant_slug:production".to_owned(),
         }
     }
 
     async fn run(&self, app_context: &AppContext, vars: &Vars) -> Result<()> {
         let email = vars.cli_arg("email")?;
         let name = vars.cli_arg("name")?;
-        let password = vars.cli_arg("password")?;
+        let password = std::env::var("EISP_ADMIN_PASSWORD")\n            .map_err(|_| Error::string("EISP_ADMIN_PASSWORD must be set in the environment"))?;
         let organization_name = vars.cli_arg("organization")?;
         let tenant_name = vars.cli_arg("tenant")?;
         let organization_slug = vars.cli_arg("org_slug")?;
@@ -31,7 +31,7 @@ impl Task for AdminCreate {
         validate_slug(tenant_slug)?;
 
         let transaction = app_context.db.begin().await?;
-        let user = User::create_with_password(&transaction, email, name, password)
+        let user = User::create_with_password(&transaction, email, name, &password)
             .await
             .map_err(|error| Error::string(&format!("could not create administrator: {error}")))?;
 

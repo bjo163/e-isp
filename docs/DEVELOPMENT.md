@@ -117,3 +117,18 @@ Not yet implemented:
 - Production backup/restore drills, retention, load testing, HA, and operational runbooks.
 
 Do not present planned or scaffold-only modules as operational features. Use [the master execution board](https://github.com/bjo163/e-isp/issues/110) for the detailed issue-by-issue delivery plan.
+
+
+## Secure initial administrator provisioning
+
+The bootstrap password is read only from `EISP_ADMIN_PASSWORD`; it is not accepted as a command-line argument. For an interactive shell:
+
+```sh
+read -s -p "Initial admin password: " EISP_ADMIN_PASSWORD
+echo
+export EISP_ADMIN_PASSWORD
+cargo loco task admin:create email:admin@example.com name:Administrator organization:"Example ISP" tenant:Production org_slug:example-isp tenant_slug:production
+unset EISP_ADMIN_PASSWORD
+```
+
+Use a unique password of at least 12 characters. Do not paste production credentials into shell command arguments, GitHub issues, logs, or source files.
