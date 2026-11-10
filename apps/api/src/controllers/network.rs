@@ -6,7 +6,7 @@ use crate::{
     services::tenant_context::TenantContext,
 };
 use axum::http::{HeaderMap, StatusCode};
-use loco_rs::{controller::ErrorDetail, prelude::*, Error};
+use loco_rs::{Error, controller::ErrorDetail, prelude::*};
 use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
