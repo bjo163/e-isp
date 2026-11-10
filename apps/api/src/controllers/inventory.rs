@@ -8,7 +8,10 @@ use axum::{
     http::{HeaderMap, StatusCode},
 };
 use loco_rs::{Error, controller::ErrorDetail, prelude::*};
-use sea_orm::{ActiveValue, ColumnTrait, Condition, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{
+    ActiveValue, ColumnTrait, Condition, DbBackend, EntityTrait, QueryFilter, QueryOrder,
+    QueryTrait, Select,
+};
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use uuid::Uuid;
@@ -237,6 +240,50 @@ fn device_search_term(value: Option<&str>) -> std::result::Result<Option<&str>, 
     }
 }
 
+fn build_device_list_query(
+    tenant_id: i64,
+    limit: usize,
+    cursor: Option<&str>,
+    search: Option<&str>,
+    role: Option<&str>,
+    lifecycle_status: Option<&str>,
+    site_id: Option<i64>,
+    pop_id: Option<i64>,
+) -> Select<devices::Entity> {
+    let mut query = devices::Entity::find()
+        .filter(devices::Column::TenantId.eq(tenant_id));
+
+    if let Some(cursor) = cursor {
+        query = query.filter(devices::Column::InventoryKey.gt(cursor.to_owned()));
+    }
+    if let Some(role) = role {
+        query = query.filter(devices::Column::DeviceRole.eq(role.to_owned()));
+    }
+    if let Some(status) = lifecycle_status {
+        query = query.filter(devices::Column::LifecycleStatus.eq(status.to_owned()));
+    }
+    if let Some(search) = search {
+        let search = search.to_owned();
+        query = query.filter(
+            Condition::any()
+                .add(devices::Column::InventoryKey.contains(search.clone()))
+                .add(devices::Column::Name.contains(search.clone()))
+                .add(devices::Column::Hostname.contains(search.clone()))
+                .add(devices::Column::ManagementAddress.contains(search)),
+        );
+    }
+    if let Some(site_id) = site_id {
+        query = query.filter(devices::Column::SiteId.eq(site_id));
+    }
+    if let Some(pop_id) = pop_id {
+        query = query.filter(devices::Column::PopId.eq(pop_id));
+    }
+
+    query
+        .order_by_asc(devices::Column::InventoryKey)
+        .limit((limit + 1) as u64)
+}
+
 async fn list_devices(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
@@ -272,30 +319,7 @@ async fn list_devices(
         return bad_request("unsupported device lifecycle filter");
     }
 
-    let mut query = devices::Entity::find()
-        .filter(devices::Column::TenantId.eq(scope.tenant_id()));
-
-    if let Some(cursor) = cursor {
-        query = query.filter(devices::Column::InventoryKey.gt(cursor.to_owned()));
-    }
-    if let Some(role) = params.role.as_deref() {
-        query = query.filter(devices::Column::DeviceRole.eq(role.to_owned()));
-    }
-    if let Some(status) = params.lifecycle_status.as_deref() {
-        query = query.filter(devices::Column::LifecycleStatus.eq(status.to_owned()));
-    }
-    if let Some(search) = search {
-        let search = search.to_owned();
-        query = query.filter(
-            Condition::any()
-                .add(devices::Column::InventoryKey.contains(search.clone()))
-                .add(devices::Column::Name.contains(search.clone()))
-                .add(devices::Column::Hostname.contains(search.clone()))
-                .add(devices::Column::ManagementAddress.contains(search)),
-        );
-    }
-
-    if let Some(raw_site_id) = params.site_id.as_deref() {
+    let site_id = if let Some(raw_site_id) = params.site_id.as_deref() {
         let public_id = match Uuid::parse_str(raw_site_id) {
             Ok(value) => value,
             Err(_) => return bad_request("site_id must be a valid UUID"),
@@ -308,10 +332,12 @@ async fn list_devices(
         else {
             return not_found();
         };
-        query = query.filter(devices::Column::SiteId.eq(site.id));
-    }
+        Some(site.id)
+    } else {
+        None
+    };
 
-    if let Some(raw_pop_id) = params.pop_id.as_deref() {
+    let pop_id = if let Some(raw_pop_id) = params.pop_id.as_deref() {
         let public_id = match Uuid::parse_str(raw_pop_id) {
             Ok(value) => value,
             Err(_) => return bad_request("pop_id must be a valid UUID"),
@@ -324,8 +350,21 @@ async fn list_devices(
         else {
             return not_found();
         };
-        query = query.filter(devices::Column::PopId.eq(pop.id));
-    }
+        Some(pop.id)
+    } else {
+        None
+    };
+
+    let query = build_device_list_query(
+        scope.tenant_id(),
+        limit,
+        cursor,
+        search,
+        params.role.as_deref(),
+        params.lifecycle_status.as_deref(),
+        site_id,
+        pop_id,
+    );
 
     let mut rows = query
         .order_by_asc(devices::Column::InventoryKey)
@@ -717,5 +756,49 @@ mod device_list_query_tests {
         assert!(valid_lifecycle("active"));
         assert!(valid_lifecycle("maintenance"));
         assert!(!valid_lifecycle("online"));
+    }
+
+    #[test]
+    fn device_query_uses_tenant_keyset_filters_and_bounded_ordered_limit() {
+        let statement = build_device_list_query(
+            42,
+            50,
+            Some("core-rtr-01"),
+            Some("edge"),
+            Some("router"),
+            Some("active"),
+            Some(7),
+            Some(9),
+        )
+        .build(DbBackend::Postgres);
+        let sql = statement.sql.to_lowercase();
+
+        assert!(sql.contains("\"devices\".\"tenant_id\""));
+        assert!(sql.contains("\"devices\".\"inventory_key\" >"));
+        assert!(sql.contains("\"devices\".\"inventory_key\" like"));
+        assert!(sql.contains("\"devices\".\"name\" like"));
+        assert!(sql.contains("\"devices\".\"hostname\" like"));
+        assert!(sql.contains("\"devices\".\"management_address\" like"));
+        assert!(sql.contains("\"devices\".\"device_role\""));
+        assert!(sql.contains("\"devices\".\"lifecycle_status\""));
+        assert!(sql.contains("\"devices\".\"site_id\""));
+        assert!(sql.contains("\"devices\".\"pop_id\""));
+        assert!(sql.contains("order by \"devices\".\"inventory_key\" asc"));
+        assert!(sql.contains("limit 51"));
+        assert!(!sql.contains(" offset "));
+        assert!(!sql.contains("core-rtr-01"));
+        assert!(!sql.contains("edge"));
+    }
+
+    #[test]
+    fn device_query_without_optional_filters_still_scopes_tenant() {
+        let statement = build_device_list_query(17, 100, None, None, None, None, None, None)
+            .build(DbBackend::Postgres);
+        let sql = statement.sql.to_lowercase();
+
+        assert!(sql.contains("\"devices\".\"tenant_id\""));
+        assert!(sql.contains("order by \"devices\".\"inventory_key\" asc"));
+        assert!(sql.contains("limit 101"));
+        assert!(!sql.contains(" offset "));
     }
 }
