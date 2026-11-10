@@ -38,7 +38,12 @@ Loco's application workers are for durable business/background jobs. High-volume
 
 ## Delivery tracking
 
-All implementation work is tracked as small GitHub issues. Each issue must have one bounded deliverable, explicit dependencies, design rules, and a checkbox-based acceptance criteria. The blueprint is the product/architecture source of truth; issues are its executable work breakdown.
+All implementation work is tracked as 109 granular GitHub issues with explicit dependencies, specifications, design rules, verification, and checkbox-based acceptance criteria.
+
+- [Master GitHub execution board](https://github.com/bjo163/e-isp/issues/110)
+- [Repository execution backlog index](docs/EXECUTION_BACKLOG.md)
+
+The blueprint is the product/architecture source of truth; issues are its executable work breakdown.
 
 ## Scope guardrails
 
