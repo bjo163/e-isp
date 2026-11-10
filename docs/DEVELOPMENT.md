@@ -42,3 +42,15 @@ npm run build --workspace @e-isp/web
 ## Current implementation boundary
 
 The repository contains the application workspace, a basic Loco API, a Next.js operational shell, PostgreSQL Compose setup, and CI. The collector is bootstrap-only. There is no device polling, user authentication flow, tenant persistence, inventory schema, real telemetry pipeline, or vendor protocol adapter in this baseline. Those capabilities remain tracked by the linked child issues and must not be presented as active features.
+
+## Tenant-scoped network location API
+
+After creating an administrator with the `admin:create` task and signing in, use the JWT returned by the API (or held in the Next.js HttpOnly session) together with the tenant public UUID:
+
+```sh
+curl -H "Authorization: Bearer $EISP_TOKEN" \
+  -H "X-Tenant-ID: $EISP_TENANT_PUBLIC_ID" \
+  http://localhost:5150/api/v1/network/sites
+```
+
+The API resolves the authenticated user, verifies active membership and organization state, then scopes every site/region/POP query by the internal tenant ID. Do not send an internal database ID as the tenant header. Writes additionally require an owner, admin, or network_admin membership role. The current API list responses are capped at 500 rows; pagination is a remaining task.
