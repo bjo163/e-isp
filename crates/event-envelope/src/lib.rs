@@ -56,7 +56,9 @@ impl<T> EventEnvelope<T> {
             return Err(EnvelopeValidationError::IdentifierTooLong);
         }
         if !self.is_supported_version() {
-            return Err(EnvelopeValidationError::UnsupportedSchema(self.schema_version));
+            return Err(EnvelopeValidationError::UnsupportedSchema(
+                self.schema_version,
+            ));
         }
         Ok(())
     }
@@ -75,8 +77,12 @@ impl std::fmt::Display for EnvelopeValidationError {
         match self {
             Self::EmptySource => f.write_str("source_id must not be empty"),
             Self::EmptyTarget => f.write_str("target_id must not be empty"),
-            Self::IdentifierTooLong => f.write_str("source and target identifiers must be at most 128 bytes"),
-            Self::UnsupportedSchema(version) => write!(f, "unsupported event schema version: {version}"),
+            Self::IdentifierTooLong => {
+                f.write_str("source and target identifiers must be at most 128 bytes")
+            }
+            Self::UnsupportedSchema(version) => {
+                write!(f, "unsupported event schema version: {version}")
+            }
         }
     }
 }
@@ -101,7 +107,9 @@ mod tests {
             "collector-a".to_owned(),
             "device-1".to_owned(),
             Utc::now(),
-            TestPayload { interface_state: "up".to_owned() },
+            TestPayload {
+                interface_state: "up".to_owned(),
+            },
         );
         assert!(event.validate().is_ok());
         let encoded = serde_json::to_string(&event);
@@ -119,7 +127,9 @@ mod tests {
             String::new(),
             "device-1".to_owned(),
             Utc::now(),
-            TestPayload { interface_state: "up".to_owned() },
+            TestPayload {
+                interface_state: "up".to_owned(),
+            },
         );
         assert_eq!(event.validate(), Err(EnvelopeValidationError::EmptySource));
     }
@@ -131,9 +141,16 @@ mod tests {
             "collector-a".to_owned(),
             "device-1".to_owned(),
             Utc::now(),
-            TestPayload { interface_state: "up".to_owned() },
+            TestPayload {
+                interface_state: "up".to_owned(),
+            },
         );
         event.schema_version = CURRENT_SCHEMA_VERSION + 1;
-        assert_eq!(event.validate(), Err(EnvelopeValidationError::UnsupportedSchema(CURRENT_SCHEMA_VERSION + 1)));
+        assert_eq!(
+            event.validate(),
+            Err(EnvelopeValidationError::UnsupportedSchema(
+                CURRENT_SCHEMA_VERSION + 1
+            ))
+        );
     }
 }
