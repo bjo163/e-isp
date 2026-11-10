@@ -1,3 +1,4 @@
+
 use async_trait::async_trait;
 use loco_rs::{
     Result,
@@ -43,6 +44,7 @@ impl Hooks for App {
             .add_route(controllers::system::routes())
             .add_route(controllers::auth::routes())
             .add_route(controllers::network::routes())
+            .add_route(controllers::inventory::routes())
     }
 
     async fn connect_workers(_ctx: &AppContext, _queue: &Queue) -> Result<()> {
