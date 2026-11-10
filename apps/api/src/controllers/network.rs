@@ -7,7 +7,7 @@ use crate::{
 };
 use axum::http::{HeaderMap, StatusCode};
 use loco_rs::{Error, controller::ErrorDetail, prelude::*};
-use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Select};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -239,6 +239,22 @@ async fn list_sites(
     format::json(response)
 }
 
+fn parse_public_id(raw: &str) -> Option<Uuid> {
+    Uuid::parse_str(raw).ok()
+}
+
+fn site_query(tenant_id: i64, public_id: Uuid) -> Select<sites::Entity> {
+    sites::Entity::find()
+        .filter(sites::Column::PublicId.eq(public_id))
+        .filter(sites::Column::TenantId.eq(tenant_id))
+}
+
+fn pop_query(tenant_id: i64, public_id: Uuid) -> Select<pops::Entity> {
+    pops::Entity::find()
+        .filter(pops::Column::PublicId.eq(public_id))
+        .filter(pops::Column::TenantId.eq(tenant_id))
+}
+
 async fn get_site(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
@@ -249,13 +265,10 @@ async fn get_site(
         Ok(scope) => scope,
         Err(()) => return forbidden("tenant access denied"),
     };
-    let public_id = match Uuid::parse_str(&raw_id) {
-        Ok(value) => value,
-        Err(_) => return not_found(),
+    let Some(public_id) = parse_public_id(&raw_id) else {
+        return not_found();
     };
-    let Some(site) = sites::Entity::find()
-        .filter(sites::Column::PublicId.eq(public_id))
-        .filter(sites::Column::TenantId.eq(scope.tenant_id()))
+    let Some(site) = site_query(scope.tenant_id(), public_id)
         .one(&ctx.db)
         .await?
     else {
@@ -407,13 +420,10 @@ async fn get_pop(
         Ok(scope) => scope,
         Err(()) => return forbidden("tenant access denied"),
     };
-    let public_id = match Uuid::parse_str(&raw_id) {
-        Ok(value) => value,
-        Err(_) => return not_found(),
+    let Some(public_id) = parse_public_id(&raw_id) else {
+        return not_found();
     };
-    let Some(pop) = pops::Entity::find()
-        .filter(pops::Column::PublicId.eq(public_id))
-        .filter(pops::Column::TenantId.eq(scope.tenant_id()))
+    let Some(pop) = pop_query(scope.tenant_id(), public_id)
         .one(&ctx.db)
         .await?
     else {
@@ -510,4 +520,35 @@ pub fn routes() -> Routes {
         .add("/pops", get(list_pops))
         .add("/pops", post(create_pop))
         .add("/pops/{pop_id}", get(get_pop))
+}
+
+
+#[cfg(test)]
+mod location_detail_query_tests {
+    use super::*;
+    use sea_orm::{DbBackend, QueryTrait};
+
+    #[test]
+    fn detail_public_id_parser_rejects_malformed_identifiers() {
+        let public_id = Uuid::new_v4();
+        assert_eq!(parse_public_id(&public_id.to_string()), Some(public_id));
+        assert!(parse_public_id("not-a-uuid").is_none());
+        assert!(parse_public_id("").is_none());
+    }
+
+    #[test]
+    fn site_detail_query_always_scopes_tenant_and_public_id() {
+        let statement = site_query(17, Uuid::new_v4()).build(DbBackend::Postgres);
+        let sql = statement.sql.to_lowercase();
+        assert!(sql.contains("\"sites\".\"tenant_id\""));
+        assert!(sql.contains("\"sites\".\"public_id\""));
+    }
+
+    #[test]
+    fn pop_detail_query_always_scopes_tenant_and_public_id() {
+        let statement = pop_query(23, Uuid::new_v4()).build(DbBackend::Postgres);
+        let sql = statement.sql.to_lowercase();
+        assert!(sql.contains("\"pops\".\"tenant_id\""));
+        assert!(sql.contains("\"pops\".\"public_id\""));
+    }
 }
