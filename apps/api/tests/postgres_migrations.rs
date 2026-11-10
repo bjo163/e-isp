@@ -14,8 +14,8 @@ async fn insert_and_get_id(
 }
 
 #[tokio::test]
-async fn fresh_postgres_database_accepts_identity_and_network_location_schema(
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn fresh_postgres_database_accepts_identity_and_network_location_schema()
+-> Result<(), Box<dyn std::error::Error>> {
     let Ok(database_url) = std::env::var("TEST_DATABASE_URL") else {
         // Local unit-test runs without PostgreSQL keep working. CI always sets this.
         return Ok(());
