@@ -239,6 +239,53 @@ async fn list_sites(
     format::json(response)
 }
 
+async fn get_site(
+    auth: auth::JWT,
+    State(ctx): State<AppContext>,
+    headers: HeaderMap,
+    Path(raw_id): Path<String>,
+) -> Result<Response> {
+    let scope = match resolve_scope(&ctx, &auth, &headers).await {
+        Ok(scope) => scope,
+        Err(()) => return forbidden("tenant access denied"),
+    };
+    let public_id = match Uuid::parse_str(&raw_id) {
+        Ok(value) => value,
+        Err(_) => return not_found(),
+    };
+    let Some(site) = sites::Entity::find()
+        .filter(sites::Column::PublicId.eq(public_id))
+        .filter(sites::Column::TenantId.eq(scope.tenant_id()))
+        .one(&ctx.db)
+        .await?
+    else {
+        return not_found();
+    };
+
+    let region_id = if let Some(region_db_id) = site.region_id {
+        let region = regions::Entity::find_by_id(region_db_id)
+            .filter(regions::Column::TenantId.eq(scope.tenant_id()))
+            .one(&ctx.db)
+            .await?;
+        let Some(region) = region else {
+            return not_found();
+        };
+        Some(region.public_id.to_string())
+    } else {
+        None
+    };
+
+    format::json(SiteResponse {
+        id: site.public_id.to_string(),
+        region_id,
+        name: site.name,
+        slug: site.slug,
+        site_type: site.site_type,
+        timezone: site.timezone,
+        status: site.status,
+    })
+}
+
 async fn create_site(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
@@ -350,6 +397,47 @@ async fn list_pops(
     format::json(response)
 }
 
+async fn get_pop(
+    auth: auth::JWT,
+    State(ctx): State<AppContext>,
+    headers: HeaderMap,
+    Path(raw_id): Path<String>,
+) -> Result<Response> {
+    let scope = match resolve_scope(&ctx, &auth, &headers).await {
+        Ok(scope) => scope,
+        Err(()) => return forbidden("tenant access denied"),
+    };
+    let public_id = match Uuid::parse_str(&raw_id) {
+        Ok(value) => value,
+        Err(_) => return not_found(),
+    };
+    let Some(pop) = pops::Entity::find()
+        .filter(pops::Column::PublicId.eq(public_id))
+        .filter(pops::Column::TenantId.eq(scope.tenant_id()))
+        .one(&ctx.db)
+        .await?
+    else {
+        return not_found();
+    };
+
+    let site = sites::Entity::find_by_id(pop.site_id)
+        .filter(sites::Column::TenantId.eq(scope.tenant_id()))
+        .one(&ctx.db)
+        .await?;
+    let Some(site) = site else {
+        return not_found();
+    };
+
+    format::json(PopResponse {
+        id: pop.public_id.to_string(),
+        site_id: site.public_id.to_string(),
+        name: pop.name,
+        slug: pop.slug,
+        pop_type: pop.pop_type,
+        status: pop.status,
+    })
+}
+
 async fn create_pop(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
@@ -418,6 +506,8 @@ pub fn routes() -> Routes {
         .add("/regions", post(create_region))
         .add("/sites", get(list_sites))
         .add("/sites", post(create_site))
+        .add("/sites/{site_id}", get(get_site))
         .add("/pops", get(list_pops))
         .add("/pops", post(create_pop))
+        .add("/pops/{pop_id}", get(get_pop))
 }
