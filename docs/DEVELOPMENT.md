@@ -65,6 +65,8 @@ Implemented routes:
 | POST | `/api/v1/network/sites` | owner / admin / network_admin |
 | GET | `/api/v1/network/pops` | Active tenant membership |
 | POST | `/api/v1/network/pops` | owner / admin / network_admin |
+| GET | `/api/v1/network/sites/{site_id}` | Active tenant membership |
+| GET | `/api/v1/network/pops/{pop_id}` | Active tenant membership |
 
 List endpoints currently return at most 500 records. Cursor pagination, update/delete operations, catalog management, and the full permission catalog remain follow-up work. The device page supports tenant selection when a user belongs to multiple tenants; device creation/edit UI is not yet implemented.
 
