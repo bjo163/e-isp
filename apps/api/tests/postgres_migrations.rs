@@ -119,25 +119,43 @@ async fn fresh_postgres_database_accepts_identity_network_and_device_inventory_s
     let interface_sql = format!(
         "INSERT INTO device_interfaces (public_id, tenant_id, device_id, stable_key, if_index, name, interface_type, admin_state, operational_state) VALUES ('{interface_public_id}', {tenant_id}, {device_id}, 'ether1', 1, 'ether1', 'ethernet', 'unknown', 'unknown')"
     );
-    insert_and_get_id(&db, "device_interfaces", interface_public_id, &interface_sql).await?;
+    insert_and_get_id(
+        &db,
+        "device_interfaces",
+        interface_public_id,
+        &interface_sql,
+    )
+    .await?;
 
     let duplicate_vendor_model = format!(
         "INSERT INTO device_models (public_id, vendor_id, model_code, display_name) VALUES ('{}', {vendor_id}, 'MODEL-TEST', 'Duplicate Model')",
         Uuid::new_v4()
     );
-    assert!(db.execute_unprepared(&duplicate_vendor_model).await.is_err());
+    assert!(
+        db.execute_unprepared(&duplicate_vendor_model)
+            .await
+            .is_err()
+    );
 
     let duplicate_inventory_key = format!(
         "INSERT INTO devices (public_id, tenant_id, inventory_key, name) VALUES ('{}', {tenant_id}, '{inventory_key}', 'Duplicate Device')",
         Uuid::new_v4()
     );
-    assert!(db.execute_unprepared(&duplicate_inventory_key).await.is_err());
+    assert!(
+        db.execute_unprepared(&duplicate_inventory_key)
+            .await
+            .is_err()
+    );
 
     let duplicate_interface_key = format!(
         "INSERT INTO device_interfaces (public_id, tenant_id, device_id, stable_key, name) VALUES ('{}', {tenant_id}, {device_id}, 'ether1', 'Duplicate Interface')",
         Uuid::new_v4()
     );
-    assert!(db.execute_unprepared(&duplicate_interface_key).await.is_err());
+    assert!(
+        db.execute_unprepared(&duplicate_interface_key)
+            .await
+            .is_err()
+    );
 
     let duplicate_region_slug = format!(
         "INSERT INTO regions (public_id, tenant_id, name, slug, timezone, status) VALUES ('{}', {tenant_id}, 'Duplicate Region', '{region_slug}', 'UTC', 'active')",
