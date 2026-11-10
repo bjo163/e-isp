@@ -4,11 +4,11 @@ use crate::{
     services::tenant_context::TenantContext,
 };
 use axum::{
-    extract::Path,
+    extract::{Path, Query},
     http::{HeaderMap, StatusCode},
 };
 use loco_rs::{Error, controller::ErrorDetail, prelude::*};
-use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{ActiveValue, ColumnTrait, Condition, EntityTrait, QueryFilter, QueryOrder, Select};
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use uuid::Uuid;
@@ -51,6 +51,30 @@ struct DeviceResponse {
     pop_id: Option<String>,
     vendor_id: Option<String>,
     device_model_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DeviceListQuery {
+    limit: Option<usize>,
+    after: Option<String>,
+    q: Option<String>,
+    role: Option<String>,
+    lifecycle_status: Option<String>,
+    site_id: Option<String>,
+    pop_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct DevicePage {
+    limit: usize,
+    next_cursor: Option<String>,
+    has_more: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct DeviceListResponse {
+    items: Vec<DeviceResponse>,
+    page: DevicePage,
 }
 
 #[derive(Debug, Serialize)]
@@ -185,27 +209,197 @@ async fn device_response(
     })
 }
 
+fn device_list_limit(value: Option<usize>) -> std::result::Result<usize, &'static str> {
+    let limit = value.unwrap_or(50);
+    if (1..=100).contains(&limit) {
+        Ok(limit)
+    } else {
+        Err("limit must be between 1 and 100")
+    }
+}
+
+fn device_list_cursor(value: Option<&str>) -> std::result::Result<Option<&str>, &'static str> {
+    match value {
+        Some(cursor) if valid_inventory_key(cursor) => Ok(Some(cursor.trim())),
+        Some(_) => Err("after must be a valid inventory_key cursor"),
+        None => Ok(None),
+    }
+}
+
+fn device_search_term(value: Option<&str>) -> std::result::Result<Option<&str>, &'static str> {
+    match value {
+        Some(query) if query.trim().len() <= 120 => {
+            let trimmed = query.trim();
+            Ok((!trimmed.is_empty()).then_some(trimmed))
+        }
+        Some(_) => Err("q must be at most 120 characters"),
+        None => Ok(None),
+    }
+}
+
+struct DeviceQueryFilters<'a> {
+    limit: usize,
+    cursor: Option<&'a str>,
+    search: Option<&'a str>,
+    role: Option<&'a str>,
+    lifecycle_status: Option<&'a str>,
+    site_id: Option<i64>,
+    pop_id: Option<i64>,
+}
+
+fn build_device_list_query(
+    tenant_id: i64,
+    filters: DeviceQueryFilters<'_>,
+) -> Select<devices::Entity> {
+    let mut query = devices::Entity::find().filter(devices::Column::TenantId.eq(tenant_id));
+
+    if let Some(cursor) = filters.cursor {
+        query = query.filter(devices::Column::InventoryKey.gt(cursor.to_owned()));
+    }
+    if let Some(role) = filters.role {
+        query = query.filter(devices::Column::DeviceRole.eq(role.to_owned()));
+    }
+    if let Some(status) = filters.lifecycle_status {
+        query = query.filter(devices::Column::LifecycleStatus.eq(status.to_owned()));
+    }
+    if let Some(search) = filters.search {
+        let search = search.to_owned();
+        query = query.filter(
+            Condition::any()
+                .add(devices::Column::InventoryKey.contains(search.clone()))
+                .add(devices::Column::Name.contains(search.clone()))
+                .add(devices::Column::Hostname.contains(search.clone()))
+                .add(devices::Column::ManagementAddress.contains(search)),
+        );
+    }
+    if let Some(site_id) = filters.site_id {
+        query = query.filter(devices::Column::SiteId.eq(site_id));
+    }
+    if let Some(pop_id) = filters.pop_id {
+        query = query.filter(devices::Column::PopId.eq(pop_id));
+    }
+
+    query
+        .order_by_asc(devices::Column::InventoryKey)
+        .limit((filters.limit + 1) as u64)
+}
+
 async fn list_devices(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
     headers: HeaderMap,
+    Query(params): Query<DeviceListQuery>,
 ) -> Result<Response> {
     let scope = match resolve_scope(&ctx, &auth, &headers).await {
         Ok(scope) => scope,
         Err(()) => return forbidden("tenant access denied"),
     };
-    let rows = devices::Entity::find()
-        .filter(devices::Column::TenantId.eq(scope.tenant_id()))
-        .order_by_asc(devices::Column::Name)
-        .limit(500)
+
+    let limit = match device_list_limit(params.limit) {
+        Ok(value) => value,
+        Err(message) => return bad_request(message),
+    };
+    let cursor = match device_list_cursor(params.after.as_deref()) {
+        Ok(value) => value,
+        Err(message) => return bad_request(message),
+    };
+    let search = match device_search_term(params.q.as_deref()) {
+        Ok(value) => value,
+        Err(message) => return bad_request(message),
+    };
+
+    if params
+        .role
+        .as_deref()
+        .is_some_and(|value| !valid_role(value))
+    {
+        return bad_request("unsupported device role filter");
+    }
+    if params
+        .lifecycle_status
+        .as_deref()
+        .is_some_and(|value| !valid_lifecycle(value))
+    {
+        return bad_request("unsupported device lifecycle filter");
+    }
+
+    let site_id = if let Some(raw_site_id) = params.site_id.as_deref() {
+        let public_id = match Uuid::parse_str(raw_site_id) {
+            Ok(value) => value,
+            Err(_) => return bad_request("site_id must be a valid UUID"),
+        };
+        let Some(site) = sites::Entity::find()
+            .filter(sites::Column::PublicId.eq(public_id))
+            .filter(sites::Column::TenantId.eq(scope.tenant_id()))
+            .one(&ctx.db)
+            .await?
+        else {
+            return not_found();
+        };
+        Some(site.id)
+    } else {
+        None
+    };
+
+    let pop_id = if let Some(raw_pop_id) = params.pop_id.as_deref() {
+        let public_id = match Uuid::parse_str(raw_pop_id) {
+            Ok(value) => value,
+            Err(_) => return bad_request("pop_id must be a valid UUID"),
+        };
+        let Some(pop) = pops::Entity::find()
+            .filter(pops::Column::PublicId.eq(public_id))
+            .filter(pops::Column::TenantId.eq(scope.tenant_id()))
+            .one(&ctx.db)
+            .await?
+        else {
+            return not_found();
+        };
+        Some(pop.id)
+    } else {
+        None
+    };
+
+    let query = build_device_list_query(
+        scope.tenant_id(),
+        DeviceQueryFilters {
+            limit,
+            cursor,
+            search,
+            role: params.role.as_deref(),
+            lifecycle_status: params.lifecycle_status.as_deref(),
+            site_id,
+            pop_id,
+        },
+    );
+
+    let mut rows = query
+        .order_by_asc(devices::Column::InventoryKey)
+        .limit((limit + 1) as u64)
         .all(&ctx.db)
         .await?;
-
-    let mut response = Vec::with_capacity(rows.len());
-    for row in rows {
-        response.push(device_response(&ctx, row, scope.tenant_id()).await?);
+    let has_more = rows.len() > limit;
+    if has_more {
+        rows.truncate(limit);
     }
-    format::json(response)
+    let next_cursor = if has_more {
+        rows.last().map(|row| row.inventory_key.clone())
+    } else {
+        None
+    };
+
+    let mut items = Vec::with_capacity(rows.len());
+    for row in rows {
+        items.push(device_response(&ctx, row, scope.tenant_id()).await?);
+    }
+
+    format::json(DeviceListResponse {
+        items,
+        page: DevicePage {
+            limit,
+            next_cursor,
+            has_more,
+        },
+    })
 }
 
 async fn get_device(
@@ -526,4 +720,110 @@ pub fn routes() -> Routes {
         .add("/devices/{device_id}", get(get_device))
         .add("/devices/{device_id}/interfaces", get(list_interfaces))
         .add("/devices/{device_id}/interfaces", post(create_interface))
+}
+
+#[cfg(test)]
+mod device_list_query_tests {
+    use super::*;
+    use sea_orm::{DbBackend, QueryTrait};
+
+    #[test]
+    fn device_list_limit_defaults_and_enforces_bounds() {
+        assert_eq!(device_list_limit(None), Ok(50));
+        assert_eq!(device_list_limit(Some(1)), Ok(1));
+        assert_eq!(device_list_limit(Some(100)), Ok(100));
+        assert!(device_list_limit(Some(0)).is_err());
+        assert!(device_list_limit(Some(101)).is_err());
+    }
+
+    #[test]
+    fn device_list_cursor_accepts_only_valid_inventory_keys() {
+        assert_eq!(device_list_cursor(None), Ok(None));
+        assert_eq!(
+            device_list_cursor(Some("core-rtr-01")),
+            Ok(Some("core-rtr-01"))
+        );
+        assert_eq!(
+            device_list_cursor(Some("  core-rtr-01  ")),
+            Ok(Some("core-rtr-01"))
+        );
+        assert!(device_list_cursor(Some("")).is_err());
+        assert!(device_list_cursor(Some("bad cursor")).is_err());
+        assert!(device_list_cursor(Some("key/with/slash")).is_err());
+    }
+
+    #[test]
+    fn device_search_term_trims_and_bounds_input() {
+        assert_eq!(device_search_term(None), Ok(None));
+        assert_eq!(device_search_term(Some("   ")), Ok(None));
+        assert_eq!(device_search_term(Some(" core ")), Ok(Some("core")));
+        assert!(device_search_term(Some(&"x".repeat(121))).is_err());
+    }
+
+    #[test]
+    fn list_filter_values_match_supported_inventory_enums() {
+        assert!(valid_role("router"));
+        assert!(valid_role("olt"));
+        assert!(!valid_role("modem"));
+        assert!(valid_lifecycle("active"));
+        assert!(valid_lifecycle("maintenance"));
+        assert!(!valid_lifecycle("online"));
+    }
+
+    #[test]
+    fn device_query_uses_tenant_keyset_filters_and_bounded_ordered_limit() {
+        let statement = build_device_list_query(
+            42,
+            DeviceQueryFilters {
+                limit: 50,
+                cursor: Some("core-rtr-01"),
+                search: Some("edge"),
+                role: Some("router"),
+                lifecycle_status: Some("active"),
+                site_id: Some(7),
+                pop_id: Some(9),
+            },
+        )
+        .build(DbBackend::Postgres);
+        let sql = statement.sql.to_lowercase();
+
+        assert!(sql.contains("\"devices\".\"tenant_id\""));
+        assert!(sql.contains("\"devices\".\"inventory_key\" >"));
+        assert!(sql.contains("\"devices\".\"inventory_key\" like"));
+        assert!(sql.contains("\"devices\".\"name\" like"));
+        assert!(sql.contains("\"devices\".\"hostname\" like"));
+        assert!(sql.contains("\"devices\".\"management_address\" like"));
+        assert!(sql.contains("\"devices\".\"device_role\""));
+        assert!(sql.contains("\"devices\".\"lifecycle_status\""));
+        assert!(sql.contains("\"devices\".\"site_id\""));
+        assert!(sql.contains("\"devices\".\"pop_id\""));
+        assert!(sql.contains("order by \"devices\".\"inventory_key\" asc"));
+        assert!(sql.contains("limit $"));
+        assert!(!sql.contains(" offset "));
+        assert!(!sql.contains("core-rtr-01"));
+        assert!(!sql.contains("edge"));
+    }
+
+    #[test]
+    fn device_query_without_optional_filters_still_scopes_tenant() {
+        let statement = build_device_list_query(
+            17,
+            DeviceQueryFilters {
+                limit: 100,
+                cursor: None,
+                search: None,
+                role: None,
+                lifecycle_status: None,
+                site_id: None,
+                pop_id: None,
+            },
+        )
+        .build(DbBackend::Postgres);
+        let sql = statement.sql.to_lowercase();
+
+        assert!(sql.contains("\"devices\".\"tenant_id\""));
+        assert!(sql.contains("order by \"devices\".\"inventory_key\" asc"));
+        assert!(sql.contains("limit $"));
+        assert!(!sql.contains(" offset "));
+    }
 }

@@ -18,8 +18,30 @@ interface Device {
   device_model_id: string | null;
 }
 
+interface DevicePageInfo {
+  limit: number;
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
+interface DeviceListResponse {
+  items: Device[];
+  page: DevicePageInfo;
+}
+
+interface DeviceFilters {
+  tenant?: string;
+  q?: string;
+  role?: string;
+  lifecycle_status?: string;
+  site_id?: string;
+  pop_id?: string;
+  after?: string;
+  limit?: string;
+}
+
 type PageState =
-  | { kind: 'ready'; devices: Device[] }
+  | { kind: 'ready'; result: DeviceListResponse }
   | { kind: 'unavailable' }
   | { kind: 'failed' };
 
@@ -29,12 +51,27 @@ function apiBaseUrl(): string | null {
   return value.endsWith('/') ? value.slice(0, -1) : value;
 }
 
-async function loadDevices(token: string, tenantId: string): Promise<PageState> {
+function queryString(filters: DeviceFilters): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value?.trim()) params.set(key, value.trim());
+  }
+  return params.toString();
+}
+
+async function loadDevices(
+  token: string,
+  tenantId: string,
+  filters: DeviceFilters,
+): Promise<PageState> {
   const baseUrl = apiBaseUrl();
   if (!baseUrl) return { kind: 'unavailable' };
 
+  const query = queryString(filters);
+  const url = `${baseUrl}/api/v1/network/devices${query ? `?${query}` : ''}`;
+
   try {
-    const response = await fetch(`${baseUrl}/api/v1/network/devices`, {
+    const response = await fetch(url, {
       cache: 'no-store',
       signal: AbortSignal.timeout(5000),
       headers: {
@@ -47,9 +84,17 @@ async function loadDevices(token: string, tenantId: string): Promise<PageState> 
       return { kind: 'failed' };
     }
     if (!response.ok) return { kind: 'unavailable' };
-    const devices = (await response.json()) as Device[];
-    if (!Array.isArray(devices)) return { kind: 'failed' };
-    return { kind: 'ready', devices };
+    const result = (await response.json()) as DeviceListResponse;
+    if (
+      !result ||
+      !Array.isArray(result.items) ||
+      !result.page ||
+      typeof result.page.has_more !== 'boolean' ||
+      typeof result.page.limit !== 'number'
+    ) {
+      return { kind: 'failed' };
+    }
+    return { kind: 'ready', result };
   } catch {
     return { kind: 'unavailable' };
   }
@@ -58,7 +103,16 @@ async function loadDevices(token: string, tenantId: string): Promise<PageState> 
 export default async function NetworkDevicesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tenant?: string }>;
+  searchParams: Promise<{
+    tenant?: string;
+    q?: string;
+    role?: string;
+    lifecycle_status?: string;
+    site_id?: string;
+    pop_id?: string;
+    after?: string;
+    limit?: string;
+  }>;
 }) {
   const cookieStore = await cookies();
   const token = cookieStore.get('eisp_session')?.value;
@@ -70,10 +124,10 @@ export default async function NetworkDevicesPage({
     return <main className="inventory-page"><p className="inventory-alert">Authentication service is unavailable.</p></main>;
   }
 
-  const { tenant: requestedTenant } = await searchParams;
+  const params = await searchParams;
   const tenants = session.current.tenants;
   const selectedTenant =
-    tenants.find(tenant => tenant.tenant_id === requestedTenant) ??
+    tenants.find(tenant => tenant.tenant_id === params.tenant) ??
     (tenants.length === 1 ? tenants[0] : null);
 
   if (!selectedTenant) {
@@ -107,7 +161,23 @@ export default async function NetworkDevicesPage({
     );
   }
 
-  const state = await loadDevices(token, selectedTenant.tenant_id);
+  const filters: DeviceFilters = {
+    q: params.q,
+    role: params.role,
+    lifecycle_status: params.lifecycle_status,
+    site_id: params.site_id,
+    pop_id: params.pop_id,
+    after: params.after,
+    limit: params.limit ?? '50',
+  };
+  const state = await loadDevices(token, selectedTenant.tenant_id, filters);
+  const nextHref = state.kind === 'ready' && state.result.page.next_cursor
+    ? `/network/devices?${queryString({
+        ...filters,
+        tenant: selectedTenant.tenant_id,
+        after: state.result.page.next_cursor,
+      })}`
+    : null;
 
   return (
     <main className="inventory-page">
@@ -124,20 +194,62 @@ export default async function NetworkDevicesPage({
       </header>
 
       <section className="inventory-summary">
-        <div><span>REGISTERED DEVICES</span><strong>{state.kind === 'ready' ? state.devices.length : '—'}</strong></div>
+        <div><span>DEVICES IN THIS PAGE</span><strong>{state.kind === 'ready' ? state.result.items.length : '—'}</strong></div>
         <div><span>ACTIVE TENANT ROLE</span><strong>{selectedTenant.role.toUpperCase()}</strong></div>
-        <div><span>DATA SOURCE</span><strong>LOCO API / LIVE QUERY</strong></div>
+        <div><span>PAGE SIZE</span><strong>{state.kind === 'ready' ? state.result.page.limit : '—'}</strong></div>
       </section>
+
+      <form className="inventory-filters" method="get">
+        <input type="hidden" name="tenant" value={selectedTenant.tenant_id} />
+        <input type="hidden" name="limit" value={filters.limit} />
+        <label className="inventory-filter-search">
+          <span>SEARCH DEVICES</span>
+          <input name="q" type="search" maxLength={120} placeholder="Name, inventory key, hostname, IP…" defaultValue={params.q ?? ''} />
+        </label>
+        <label>
+          <span>ROLE</span>
+          <select name="role" defaultValue={params.role ?? ''}>
+            <option value="">ALL ROLES</option>
+            <option value="router">ROUTER</option>
+            <option value="switch">SWITCH</option>
+            <option value="firewall">FIREWALL</option>
+            <option value="olt">OLT</option>
+            <option value="server">SERVER</option>
+            <option value="wireless">WIRELESS</option>
+            <option value="other">OTHER</option>
+          </select>
+        </label>
+        <label>
+          <span>LIFECYCLE</span>
+          <select name="lifecycle_status" defaultValue={params.lifecycle_status ?? ''}>
+            <option value="">ALL STATES</option>
+            <option value="planned">PLANNED</option>
+            <option value="active">ACTIVE</option>
+            <option value="maintenance">MAINTENANCE</option>
+            <option value="retired">RETIRED</option>
+          </select>
+        </label>
+        <label>
+          <span>SITE UUID</span>
+          <input name="site_id" placeholder="Optional site UUID" defaultValue={params.site_id ?? ''} />
+        </label>
+        <label>
+          <span>POP UUID</span>
+          <input name="pop_id" placeholder="Optional POP UUID" defaultValue={params.pop_id ?? ''} />
+        </label>
+        <button type="submit">APPLY FILTERS ↗</button>
+        <Link className="inventory-filter-reset" href={`/network/devices?tenant=${encodeURIComponent(selectedTenant.tenant_id)}`}>RESET</Link>
+      </form>
 
       {state.kind === 'unavailable' ? (
         <p className="inventory-alert">The network inventory API is unavailable. No cached or sample devices are shown.</p>
       ) : state.kind === 'failed' ? (
-        <p className="inventory-alert">The request was rejected or returned an invalid response. Confirm tenant membership and API access.</p>
-      ) : state.devices.length === 0 ? (
+        <p className="inventory-alert">The request was rejected or returned an invalid response. Confirm tenant membership and filter values.</p>
+      ) : state.result.items.length === 0 ? (
         <section className="inventory-empty">
-          <span className="section-index">NO ASSETS REGISTERED</span>
-          <h2>THE INVENTORY IS EMPTY.</h2>
-          <p>Devices will appear here after they are added through the authorized inventory API. Discovery and automatic polling are not enabled yet.</p>
+          <span className="section-index">NO MATCHING ASSETS</span>
+          <h2>NO DEVICES FOUND.</h2>
+          <p>No device matches the current tenant and filters. Clear filters or add devices through the authorized inventory API.</p>
         </section>
       ) : (
         <div className="inventory-table-wrap">
@@ -153,7 +265,7 @@ export default async function NetworkDevicesPage({
               </tr>
             </thead>
             <tbody>
-              {state.devices.map(device => (
+              {state.result.items.map(device => (
                 <tr key={device.id}>
                   <td><code>{device.inventory_key}</code></td>
                   <td><strong>{device.name}</strong><small>{device.hostname ?? 'HOSTNAME NOT SET'}</small></td>
@@ -165,7 +277,10 @@ export default async function NetworkDevicesPage({
               ))}
             </tbody>
           </table>
-          <p className="inventory-footnote">Showing up to 500 devices. The current API uses a bounded list; cursor pagination is a separate delivery task.</p>
+          <div className="inventory-pagination">
+            <span>{state.result.items.length} DEVICES · SORTED BY INVENTORY KEY</span>
+            {state.result.page.has_more && nextHref ? <Link className="inventory-back" href={nextHref}>NEXT PAGE ↗</Link> : <span>END OF RESULTS</span>}
+          </div>
         </div>
       )}
     </main>
