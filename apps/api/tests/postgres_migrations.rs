@@ -7,7 +7,7 @@ async fn insert_and_get_id(
     sql: String,
 ) -> Result<i64, Box<dyn std::error::Error>> {
     let row = db
-        .query_one(&Statement::from_string(DbBackend::Postgres, sql))
+        .query_one_raw(Statement::from_string(DbBackend::Postgres, sql))
         .await?
         .ok_or("insert did not return a row")?;
     Ok(row.try_get("", "id")?)
