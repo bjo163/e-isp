@@ -1,0 +1,12 @@
+/target/
+/node_modules/
+/apps/web/.next/
+/apps/web/out/
+/apps/web/node_modules/
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.DS_Store

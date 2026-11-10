@@ -1,0 +1,29 @@
+logger:
+  enable: false
+  pretty_backtrace: true
+  level: warn
+  format: compact
+
+server:
+  port: 5151
+  binding: 127.0.0.1
+  host: http://localhost
+
+workers:
+  mode: ForegroundBlocking
+
+database:
+  uri: <%= get_env(name="DATABASE_URL", default="postgres://eisp:change-this-local-password@localhost:5432/eisp_test?sslmode=disable") %>
+  enable_logging: false
+  connect_timeout: 5000
+  idle_timeout: 10000
+  min_connections: 1
+  max_connections: 2
+  auto_migrate: true
+  dangerously_truncate: false
+  dangerously_recreate: false
+
+auth:
+  jwt:
+    secret: test-only-secret-replace-before-use
+    expiration: 3600

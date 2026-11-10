@@ -1,0 +1,29 @@
+logger:
+  enable: true
+  pretty_backtrace: true
+  level: <%= get_env(name="LOG_LEVEL", default="debug") %>
+  format: compact
+
+server:
+  port: <%= get_env(name="PORT", default="5150") %>
+  binding: <%= get_env(name="BINDING", default="0.0.0.0") %>
+  host: <%= get_env(name="HOST", default="http://localhost") %>
+
+workers:
+  mode: BackgroundAsync
+
+database:
+  uri: <%= get_env(name="DATABASE_URL", default="postgres://eisp:change-this-local-password@localhost:5432/eisp?sslmode=disable") %>
+  enable_logging: false
+  connect_timeout: 5000
+  idle_timeout: 60000
+  min_connections: 1
+  max_connections: 10
+  auto_migrate: true
+  dangerously_truncate: false
+  dangerously_recreate: false
+
+auth:
+  jwt:
+    secret: <%= get_env(name="JWT_SECRET", default="local-development-only-change-this-secret") %>
+    expiration: 3600

@@ -1,0 +1,29 @@
+logger:
+  enable: true
+  pretty_backtrace: false
+  level: <%= get_env(name="LOG_LEVEL", default="info") %>
+  format: json
+
+server:
+  port: <%= get_env(name="PORT", default="5150") %>
+  binding: <%= get_env(name="BINDING", default="0.0.0.0") %>
+  host: <%= get_env(name="HOST", default="http://localhost") %>
+
+workers:
+  mode: BackgroundAsync
+
+database:
+  uri: <%= get_env(name="DATABASE_URL") %>
+  enable_logging: false
+  connect_timeout: <%= get_env(name="DB_CONNECT_TIMEOUT", default="5000") %>
+  idle_timeout: <%= get_env(name="DB_IDLE_TIMEOUT", default="60000") %>
+  min_connections: <%= get_env(name="DB_MIN_CONNECTIONS", default="2") %>
+  max_connections: <%= get_env(name="DB_MAX_CONNECTIONS", default="20") %>
+  auto_migrate: false
+  dangerously_truncate: false
+  dangerously_recreate: false
+
+auth:
+  jwt:
+    secret: <%= get_env(name="JWT_SECRET") %>
+    expiration: <%= get_env(name="JWT_EXPIRATION_SECONDS", default="3600") %>

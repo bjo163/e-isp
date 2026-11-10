@@ -1,0 +1,14 @@
+{
+  "name": "e-isp-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/web"],
+  "scripts": {
+    "dev": "npm run dev --workspace @e-isp/web",
+    "build": "npm run build --workspace @e-isp/web",
+    "start": "npm run start --workspace @e-isp/web",
+    "lint": "npm run lint --workspace @e-isp/web",
+    "typecheck": "npm run typecheck --workspace @e-isp/web"
+  },
+  "engines": { "node": ">=22.11.0" }
+}

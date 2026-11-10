@@ -1,0 +1,74 @@
+name: e-isp
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-eisp}
+      POSTGRES_USER: ${POSTGRES_USER:-eisp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-local-password}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      RUST_ENV: development
+      PORT: 5150
+      BINDING: 0.0.0.0
+      DATABASE_URL: postgres://${POSTGRES_USER:-eisp}:${POSTGRES_PASSWORD:-change-this-local-password}@postgres:5432/${POSTGRES_DB:-eisp}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-local-development-only-change-this-secret}
+      RUST_LOG: info
+    ports:
+      - "127.0.0.1:5150:5150"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-lc", "</dev/tcp/127.0.0.1/5150"]
+      interval: 10s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_INTERNAL_URL: http://api:5150
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 4s
+      retries: 15
+    restart: unless-stopped
+
+  collector:
+    build:
+      context: .
+      dockerfile: apps/collector/Dockerfile
+    environment:
+      COLLECTOR_ID: local-unregistered
+      RUST_LOG: info
+    profiles: ["collector-bootstrap"]
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
