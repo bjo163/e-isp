@@ -79,17 +79,18 @@ impl Task for AdminCreate {
 }
 
 fn validate_slug(value: &str) -> Result<()> {
+    let is_slug_character = |character: char| {
+        character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
+    };
+    let is_alphanumeric = |character: char| {
+        character.is_ascii_lowercase() || character.is_ascii_digit()
+    };
+
     let valid = !value.is_empty()
         && value.len() <= 63
-        && value.chars().all(|character| {
-            character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
-        })
-        && value.chars().next().is_some_and(|character| {
-            character.is_ascii_lowercase() || character.is_ascii_digit()
-        })
-        && value.chars().last().is_some_and(|character| {
-            character.is_ascii_lowercase() || character.is_ascii_digit()
-        });
+        && value.chars().all(is_slug_character)
+        && value.chars().next().is_some_and(is_alphanumeric)
+        && value.chars().last().is_some_and(is_alphanumeric);
 
     if valid {
         Ok(())
