@@ -29,7 +29,11 @@ Open `http://localhost:3000`. The Loco system endpoint is `http://localhost:5150
 Create the initial administrator and tenant (after the API is running and migrations have completed):
 
 ```sh
-cargo loco task admin:create email:admin@example.com name:Administrator password:'change-this-to-a-long-unique-password' organization:'Example ISP' tenant:Production org_slug:example-isp tenant_slug:production
+(
+  read -s -p "Initial admin password: " EISP_ADMIN_PASSWORD
+  echo
+  EISP_ADMIN_PASSWORD="$EISP_ADMIN_PASSWORD" cargo loco task admin:create email:admin@example.com name:Administrator organization:'Example ISP' tenant:Production org_slug:example-isp tenant_slug:production
+)
 ```
 
 Then sign in at `http://localhost:3000/login`. Public self-registration is deliberately disabled.
