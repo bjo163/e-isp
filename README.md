@@ -49,7 +49,7 @@ Then sign in at `http://localhost:3000/login`. Public self-registration is delib
 
 ## Delivery tracking
 
-- [Master GitHub execution board — 128 granular implementation issues](https://github.com/bjo163/e-isp/issues/110)
+- [Master GitHub execution board — 131 granular implementation issues](https://github.com/bjo163/e-isp/issues/110)
 - [Repository execution backlog index](docs/EXECUTION_BACKLOG.md)
 
 The blueprint owns architecture decisions; child issues own bounded implementation deliverables and acceptance evidence.
