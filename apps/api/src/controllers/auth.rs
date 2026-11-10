@@ -15,10 +15,7 @@ struct LoginParams {
 }
 
 #[debug_handler]
-async fn login(
-    State(ctx): State<AppContext>,
-    Json(params): Json<LoginParams>,
-) -> Result<Response> {
+async fn login(State(ctx): State<AppContext>, Json(params): Json<LoginParams>) -> Result<Response> {
     let email = params.email.trim().to_ascii_lowercase();
     if email.len() > 254 || !email.contains('@') || params.password.is_empty() {
         return bad_request("invalid login request");
@@ -46,10 +43,7 @@ async fn login(
 }
 
 #[debug_handler]
-async fn current(
-    auth: auth::JWT,
-    State(ctx): State<AppContext>,
-) -> Result<Response> {
+async fn current(auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
     let user = match User::find_by_pid(&ctx.db, &auth.claims.pid).await {
         Ok(user) if user.is_active => user,
         _ => return unauthorized("session is no longer valid"),
@@ -98,7 +92,7 @@ async fn current(
 
 pub fn routes() -> Routes {
     Routes::new()
-        .prefix("api/v1/auth")
+        .prefix("/api/v1/auth")
         .add("/login", post(login))
         .add("/me", get(current))
 }

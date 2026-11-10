@@ -31,14 +31,9 @@ impl Task for AdminCreate {
         validate_slug(tenant_slug)?;
 
         let transaction = app_context.db.begin().await?;
-        let user = User::create_with_password(
-            &transaction,
-            email,
-            name,
-            password,
-        )
-        .await
-        .map_err(|error| Error::string(&format!("could not create administrator: {error}")))?;
+        let user = User::create_with_password(&transaction, email, name, password)
+            .await
+            .map_err(|error| Error::string(&format!("could not create administrator: {error}")))?;
 
         let organization = organizations::ActiveModel {
             public_id: ActiveValue::Set(Uuid::new_v4()),
@@ -86,21 +81,21 @@ impl Task for AdminCreate {
 fn validate_slug(value: &str) -> Result<()> {
     let valid = !value.is_empty()
         && value.len() <= 63
-        && value
-            .chars()
-            .all(|character| character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-')
-        && value
-            .chars()
-            .next()
-            .is_some_and(|character| character.is_ascii_lowercase() || character.is_ascii_digit())
-        && value
-            .chars()
-            .last()
-            .is_some_and(|character| character.is_ascii_lowercase() || character.is_ascii_digit());
+        && value.chars().all(|character| {
+            character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
+        })
+        && value.chars().next().is_some_and(|character| {
+            character.is_ascii_lowercase() || character.is_ascii_digit()
+        })
+        && value.chars().last().is_some_and(|character| {
+            character.is_ascii_lowercase() || character.is_ascii_digit()
+        });
 
     if valid {
         Ok(())
     } else {
-        Err(Error::string("slug must be 1-63 lowercase letters, digits, or internal hyphens"))
+        Err(Error::string(
+            "slug must be 1-63 lowercase letters, digits, or internal hyphens",
+        ))
     }
 }

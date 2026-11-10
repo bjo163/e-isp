@@ -1,8 +1,4 @@
-use loco_rs::{
-    auth::jwt,
-    hash,
-    prelude::*,
-};
+use loco_rs::{auth::jwt, hash, prelude::*};
 use sea_orm::{ActiveModelBehavior, ActiveValue, ConnectionTrait, EntityTrait, QueryFilter};
 use serde_json::Map;
 use uuid::Uuid;
@@ -77,7 +73,9 @@ impl Model {
             return Err(ModelError::msg("name must contain 2 to 120 characters"));
         }
         if password.chars().count() < 12 || password.chars().count() > 256 {
-            return Err(ModelError::msg("password must contain 12 to 256 characters"));
+            return Err(ModelError::msg(
+                "password must contain 12 to 256 characters",
+            ));
         }
 
         let existing = Entity::find()
