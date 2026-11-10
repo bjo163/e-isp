@@ -1,4 +1,4 @@
-use loco_rs::prelude::*;
+use loco_rs::{prelude::*, task::Vars};
 use sea_orm::ActiveValue;
 use uuid::Uuid;
 
