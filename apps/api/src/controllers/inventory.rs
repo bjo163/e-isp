@@ -321,60 +321,60 @@ async fn create_device(
         params.vendor_id.as_deref(),
         params.device_model_id.as_deref(),
     ) {
-            (Some(vendor_raw), Some(model_raw)) => {
-                let vendor_uuid = match Uuid::parse_str(vendor_raw) {
-                    Ok(value) => value,
-                    Err(_) => return bad_request("vendor_id must be a valid UUID"),
-                };
-                let model_uuid = match Uuid::parse_str(model_raw) {
-                    Ok(value) => value,
-                    Err(_) => return bad_request("device_model_id must be a valid UUID"),
-                };
-                let vendor = vendors::Entity::find()
-                    .filter(vendors::Column::PublicId.eq(vendor_uuid))
-                    .one(&ctx.db)
-                    .await?;
-                let model = device_models::Entity::find()
-                    .filter(device_models::Column::PublicId.eq(model_uuid))
-                    .one(&ctx.db)
-                    .await?;
-                match (vendor, model) {
-                    (Some(vendor), Some(model)) if vendor.id == model.vendor_id => {
-                        (Some(vendor.id), Some(model.id))
-                    }
-                    _ => return bad_request("device model does not belong to the selected vendor"),
+        (Some(vendor_raw), Some(model_raw)) => {
+            let vendor_uuid = match Uuid::parse_str(vendor_raw) {
+                Ok(value) => value,
+                Err(_) => return bad_request("vendor_id must be a valid UUID"),
+            };
+            let model_uuid = match Uuid::parse_str(model_raw) {
+                Ok(value) => value,
+                Err(_) => return bad_request("device_model_id must be a valid UUID"),
+            };
+            let vendor = vendors::Entity::find()
+                .filter(vendors::Column::PublicId.eq(vendor_uuid))
+                .one(&ctx.db)
+                .await?;
+            let model = device_models::Entity::find()
+                .filter(device_models::Column::PublicId.eq(model_uuid))
+                .one(&ctx.db)
+                .await?;
+            match (vendor, model) {
+                (Some(vendor), Some(model)) if vendor.id == model.vendor_id => {
+                    (Some(vendor.id), Some(model.id))
                 }
+                _ => return bad_request("device model does not belong to the selected vendor"),
             }
-            (Some(vendor_raw), None) => {
-                let vendor_uuid = match Uuid::parse_str(vendor_raw) {
-                    Ok(value) => value,
-                    Err(_) => return bad_request("vendor_id must be a valid UUID"),
-                };
-                let vendor = vendors::Entity::find()
-                    .filter(vendors::Column::PublicId.eq(vendor_uuid))
-                    .one(&ctx.db)
-                    .await?;
-                match vendor {
-                    Some(vendor) => (Some(vendor.id), None),
-                    None => return not_found(),
-                }
+        }
+        (Some(vendor_raw), None) => {
+            let vendor_uuid = match Uuid::parse_str(vendor_raw) {
+                Ok(value) => value,
+                Err(_) => return bad_request("vendor_id must be a valid UUID"),
+            };
+            let vendor = vendors::Entity::find()
+                .filter(vendors::Column::PublicId.eq(vendor_uuid))
+                .one(&ctx.db)
+                .await?;
+            match vendor {
+                Some(vendor) => (Some(vendor.id), None),
+                None => return not_found(),
             }
-            (None, Some(model_raw)) => {
-                let model_uuid = match Uuid::parse_str(model_raw) {
-                    Ok(value) => value,
-                    Err(_) => return bad_request("device_model_id must be a valid UUID"),
-                };
-                let model = device_models::Entity::find()
-                    .filter(device_models::Column::PublicId.eq(model_uuid))
-                    .one(&ctx.db)
-                    .await?;
-                match model {
-                    Some(model) => (Some(model.vendor_id), Some(model.id)),
-                    None => return not_found(),
-                }
+        }
+        (None, Some(model_raw)) => {
+            let model_uuid = match Uuid::parse_str(model_raw) {
+                Ok(value) => value,
+                Err(_) => return bad_request("device_model_id must be a valid UUID"),
+            };
+            let model = device_models::Entity::find()
+                .filter(device_models::Column::PublicId.eq(model_uuid))
+                .one(&ctx.db)
+                .await?;
+            match model {
+                Some(model) => (Some(model.vendor_id), Some(model.id)),
+                None => return not_found(),
             }
-            (None, None) => (None, None),
-        };
+        }
+        (None, None) => (None, None),
+    };
 
     let row = devices::ActiveModel {
         public_id: ActiveValue::Set(Uuid::new_v4()),
