@@ -21,7 +21,8 @@ impl Task for AdminCreate {
     async fn run(&self, app_context: &AppContext, vars: &Vars) -> Result<()> {
         let email = vars.cli_arg("email")?;
         let name = vars.cli_arg("name")?;
-        let password = std::env::var("EISP_ADMIN_PASSWORD")\n            .map_err(|_| Error::string("EISP_ADMIN_PASSWORD must be set in the environment"))?;
+        let password = std::env::var("EISP_ADMIN_PASSWORD")
+            .map_err(|_| Error::string("EISP_ADMIN_PASSWORD must be set in the environment"))?;
         let organization_name = vars.cli_arg("organization")?;
         let tenant_name = vars.cli_arg("tenant")?;
         let organization_slug = vars.cli_arg("org_slug")?;
