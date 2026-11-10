@@ -33,7 +33,10 @@ impl MigrationTrait for Migration {
                 ("region_id", ColType::BigIntegerNull),
                 ("name", ColType::String),
                 ("slug", ColType::String),
-                ("site_type", ColType::StringWithDefault("facility".to_owned())),
+                (
+                    "site_type",
+                    ColType::StringWithDefault("facility".to_owned()),
+                ),
                 ("timezone", ColType::StringWithDefault("UTC".to_owned())),
                 ("status", ColType::StringWithDefault("active".to_owned())),
             ],
@@ -115,12 +118,7 @@ impl MigrationTrait for Migration {
             ("uq_regions_tenant_slug", "regions"),
         ] {
             manager
-                .drop_index(
-                    Index::drop()
-                        .name(index_name)
-                        .table(table_name)
-                        .to_owned(),
-                )
+                .drop_index(Index::drop().name(index_name).table(table_name).to_owned())
                 .await?;
         }
 

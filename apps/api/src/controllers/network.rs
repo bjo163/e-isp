@@ -97,9 +97,8 @@ fn validate_slug(value: &str) -> bool {
     let is_slug_character = |character: char| {
         character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
     };
-    let is_alphanumeric = |character: char| {
-        character.is_ascii_lowercase() || character.is_ascii_digit()
-    };
+    let is_alphanumeric =
+        |character: char| character.is_ascii_lowercase() || character.is_ascii_digit();
 
     !value.is_empty()
         && value.len() <= 63
@@ -325,9 +324,7 @@ async fn list_pops(
 
     let mut response = Vec::with_capacity(rows.len());
     for pop in rows {
-        let site = sites::Entity::find_by_id(pop.site_id)
-            .one(&ctx.db)
-            .await?;
+        let site = sites::Entity::find_by_id(pop.site_id).one(&ctx.db).await?;
         let site_id = site
             .filter(|site| site.tenant_id == scope.tenant_id())
             .map(|site| site.public_id.to_string())
