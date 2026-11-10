@@ -124,11 +124,11 @@ Do not present planned or scaffold-only modules as operational features. Use [th
 The bootstrap password is read only from `EISP_ADMIN_PASSWORD`; it is not accepted as a command-line argument. For an interactive shell:
 
 ```sh
-read -s -p "Initial admin password: " EISP_ADMIN_PASSWORD
-echo
-export EISP_ADMIN_PASSWORD
-cargo loco task admin:create email:admin@example.com name:Administrator organization:"Example ISP" tenant:Production org_slug:example-isp tenant_slug:production
-unset EISP_ADMIN_PASSWORD
+(
+  read -s -p "Initial admin password: " EISP_ADMIN_PASSWORD
+  echo
+  EISP_ADMIN_PASSWORD="$EISP_ADMIN_PASSWORD" cargo loco task admin:create email:admin@example.com name:Administrator organization:"Example ISP" tenant:Production org_slug:example-isp tenant_slug:production
+)
 ```
 
 Use a unique password of at least 12 characters. Do not paste production credentials into shell command arguments, GitHub issues, logs, or source files.
