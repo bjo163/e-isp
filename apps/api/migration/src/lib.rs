@@ -2,12 +2,13 @@
 
 pub use sea_orm_migration::prelude::*;
 
+mod m20261111_000001_identity_tenancy;
+
 pub struct Migrator;
 
 #[async_trait::async_trait]
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        // Domain migrations are added alongside their corresponding bounded issues.
-        Vec::new()
+        vec![Box::new(m20261111_000001_identity_tenancy::Migration)]
     }
 }

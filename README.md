@@ -26,6 +26,14 @@ docker compose up --build
 
 Open `http://localhost:3000`. The Loco system endpoint is `http://localhost:5150/api/v1/system/info`.
 
+Create the initial administrator and tenant (after the API is running and migrations have completed):
+
+```sh
+cargo loco task admin:create email:admin@example.com name:Administrator password:'change-this-to-a-long-unique-password' organization:'Example ISP' tenant:Production org_slug:example-isp tenant_slug:production
+```
+
+Then sign in at `http://localhost:3000/login`. Public self-registration is deliberately disabled.
+
 ## Product and architecture documents
 
 - [Product Narrative](docs/PRODUCT_NARRATIVE.md)
@@ -33,6 +41,7 @@ Open `http://localhost:3000`. The Loco system endpoint is `http://localhost:5150
 - [Engineering Rules](docs/ENGINEERING_RULES.md)
 - [Issue Execution Standard](docs/ISSUE_EXECUTION_STANDARD.md)
 - [Execution Backlog](docs/EXECUTION_BACKLOG.md)
+- [Development Guide](docs/DEVELOPMENT.md)
 
 ## Delivery tracking
 
@@ -43,4 +52,6 @@ The blueprint owns architecture decisions; child issues own bounded implementati
 
 ## Current status
 
-The Loco API and Next.js shell are scaffolded. The collector is explicitly bootstrap-only. Network discovery, protocol polling, tenant/auth flows, inventory, telemetry ingestion, topology, incidents, ISP integrations, automation, and production hardening are not yet implemented. Do not treat issue creation or a successful scaffold build as proof those capabilities exist.
+Implemented: Loco API foundation, PostgreSQL identity/organization/tenant/membership schema, password login and current-user APIs, administrator bootstrap task, Next.js HttpOnly session bridge, and sign-in screen.
+
+Still pending: full RBAC permissions, tenant-scoped network inventory CRUD, collectors, protocol polling, telemetry ingestion, topology, incidents, ISP/FTTH integrations, controlled network automation, and production hardening. Do not treat planned modules as operational features.

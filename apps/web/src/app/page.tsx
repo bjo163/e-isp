@@ -1,4 +1,6 @@
-import { getApiConnection } from '@/lib/system';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { getApiConnection, getCurrentUser } from '@/lib/system';
 
 const modules = [
   { code: 'NET', title: 'Network inventory', detail: 'Devices, interfaces, sites and POPs', state: 'Scaffold' },
@@ -10,7 +12,14 @@ const modules = [
 ];
 
 export default async function Home() {
-  const api = await getApiConnection();
+  const cookieStore = await cookies();
+  const token = cookieStore.get('eisp_session')?.value;
+  if (!token) redirect('/login');
+
+  const [api, session] = await Promise.all([getApiConnection(), getCurrentUser(token)]);
+  if (!session.authenticated && session.reason === 'unauthorized') redirect('/login');
+  const user = session.authenticated ? session.current.user : null;
+  const tenants = session.authenticated ? session.current.tenants : [];
 
   return (
     <main className="shell">
@@ -21,7 +30,7 @@ export default async function Home() {
         <a className="rail-link" href="#modules" aria-label="Modules">▦</a>
         <a className="rail-link" href="https://github.com/bjo163/e-isp/issues/110" aria-label="Execution backlog">☷</a>
         <div className="rail-spacer" />
-        <a className="rail-link" href="https://github.com/bjo163/e-isp" aria-label="GitHub repository">↗</a>
+        <form action="/api/auth/logout" method="post"><button className="rail-link rail-logout" type="submit" aria-label="Sign out">↪</button></form>
       </aside>
 
       <div className="workspace">
@@ -29,13 +38,13 @@ export default async function Home() {
           <div className="crumb"><span>OPERATIONS</span><b>/</b><strong>COMMAND CENTER</strong></div>
           <div className="topbar-right">
             <span className="environment">SELF-HOSTED</span>
-            <span className="operator"><span className="operator-dot" /> OPERATOR CONSOLE</span>
+            <span className="operator"><span className="operator-dot" /> {user?.name.toUpperCase() ?? 'API UNAVAILABLE'}</span>
           </div>
         </header>
 
         <section className="hero" id="overview">
           <div className="hero-copy">
-            <div className="eyebrow"><span className="eyebrow-line" /> NETWORK OPERATIONS CENTER <span className="eyebrow-version">FOUNDATION 0.1</span></div>
+            <div className="eyebrow"><span className="eyebrow-line" /> NETWORK OPERATIONS CENTER <span className="eyebrow-version">FOUNDATION 0.2</span></div>
             <h1>SEE THE<br /><em>WHOLE</em> NETWORK.</h1>
             <p className="hero-subtitle">Know the network. Protect the service. Automate the operation.</p>
             <div className="hero-note">ONE OPERATIONAL PICTURE — FROM CORE TO CUSTOMER EDGE.</div>
@@ -58,12 +67,12 @@ export default async function Home() {
             <strong>{api.connected ? api.info.api_version.toUpperCase() : 'WAITING'}</strong>
           </div>
           <div className="status-cell">
-            <span className="status-label">COLLECTOR TELEMETRY</span>
-            <strong className="state-muted"><i /> NOT CONFIGURED</strong>
+            <span className="status-label">TENANT ACCESS</span>
+            <strong className="state-muted">{session.authenticated ? tenants.length + ' TENANT(S)' : 'API UNAVAILABLE'}</strong>
           </div>
           <div className="status-cell status-cell-last">
-            <span className="status-label">OPERATIONAL DATA</span>
-            <strong className="state-muted">NO LIVE DATA YET</strong>
+            <span className="status-label">NETWORK TELEMETRY</span>
+            <strong className="state-muted"><i /> NOT CONFIGURED</strong>
           </div>
         </section>
 

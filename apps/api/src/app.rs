@@ -12,7 +12,7 @@ use loco_rs::{
 use migration::Migrator;
 use std::path::Path;
 
-use crate::controllers;
+use crate::{controllers, tasks};
 
 pub struct App;
 
@@ -39,14 +39,18 @@ impl Hooks for App {
     }
 
     fn routes(_ctx: &AppContext) -> AppRoutes {
-        AppRoutes::with_default_routes().add_route(controllers::system::routes())
+        AppRoutes::with_default_routes()
+            .add_route(controllers::system::routes())
+            .add_route(controllers::auth::routes())
     }
 
     async fn connect_workers(_ctx: &AppContext, _queue: &Queue) -> Result<()> {
         Ok(())
     }
 
-    fn register_tasks(_tasks: &mut Tasks) {}
+    fn register_tasks(tasks: &mut Tasks) {
+        tasks.register(tasks::admin_create::AdminCreate);
+    }
 
     async fn truncate(_ctx: &AppContext) -> Result<()> {
         Ok(())
