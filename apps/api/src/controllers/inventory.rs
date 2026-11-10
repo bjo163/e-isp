@@ -253,10 +253,12 @@ async fn create_device(
     if !valid_lifecycle(&lifecycle) {
         return bad_request("unsupported device lifecycle status");
     }
-    if let Some(hostname) = params.hostname.as_deref() {
-        if hostname.trim().is_empty() || hostname.len() > 253 {
-            return bad_request("invalid hostname");
-        }
+    if params
+        .hostname
+        .as_deref()
+        .is_some_and(|hostname| hostname.trim().is_empty() || hostname.len() > 253)
+    {
+        return bad_request("invalid hostname");
     }
     if params
         .serial_number
@@ -475,10 +477,12 @@ async fn create_interface(
     if !valid_name(&interface_type) {
         return bad_request("invalid interface type");
     }
-    if let Some(description) = params.description.as_deref() {
-        if description.len() > 512 {
-            return bad_request("interface description is too long");
-        }
+    if params
+        .description
+        .as_deref()
+        .is_some_and(|description| description.len() > 512)
+    {
+        return bad_request("interface description is too long");
     }
 
     let result = device_interfaces::ActiveModel {
