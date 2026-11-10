@@ -8,10 +8,16 @@ default-run = "e-isp-api"
 
 [dependencies]
 async-trait.workspace = true
+axum.workspace = true
+chrono.workspace = true
 loco-rs.workspace = true
 migration = { path = "migration" }
+sea-orm.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
 
 [[bin]]
 name = "e-isp-api"
