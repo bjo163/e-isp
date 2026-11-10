@@ -17,6 +17,22 @@ jobs:
   rust:
     name: Rust workspace
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: eisp
+          POSTGRES_PASSWORD: eisp
+          POSTGRES_DB: eisp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U eisp -d eisp_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://eisp:eisp@localhost:5432/eisp_test
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
