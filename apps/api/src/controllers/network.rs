@@ -5,8 +5,8 @@ use crate::{
     },
     services::tenant_context::TenantContext,
 };
-use axum::http::HeaderMap;
-use loco_rs::prelude::*;
+use axum::http::{HeaderMap, StatusCode};
+use loco_rs::{controller::ErrorDetail, prelude::*, Error};
 use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -65,7 +65,7 @@ struct PopResponse {
     status: String,
 }
 
-fn request_tenant_id(headers: &HeaderMap) -> std::result::Result<Uuid, ()> {
+fn forbidden(message: &str) -> Result<Response> {\n    Err(Error::CustomError(\n        StatusCode::FORBIDDEN,\n        ErrorDetail::new("forbidden", message),\n    ))\n}\n\nfn request_tenant_id(headers: &HeaderMap) -> std::result::Result<Uuid, ()> {
     let raw = headers
         .get("x-tenant-id")
         .ok_or(())?
@@ -368,7 +368,7 @@ async fn create_pop(
         .one(&ctx.db)
         .await?;
     let Some(site) = site else {
-        return not_found("site not found in active tenant");
+        return not_found();
     };
 
     let pop_type = params.pop_type.unwrap_or_else(|| "network".to_owned());
