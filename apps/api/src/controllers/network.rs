@@ -126,6 +126,7 @@ async fn list_regions(
     let rows = regions::Entity::find()
         .filter(regions::Column::TenantId.eq(scope.tenant_id()))
         .order_by_asc(regions::Column::Name)
+        .limit(500)
         .all(&ctx.db)
         .await?;
 
@@ -203,6 +204,7 @@ async fn list_sites(
     let rows = sites::Entity::find()
         .filter(sites::Column::TenantId.eq(scope.tenant_id()))
         .order_by_asc(sites::Column::Name)
+        .limit(500)
         .all(&ctx.db)
         .await?;
 
@@ -317,6 +319,7 @@ async fn list_pops(
     let rows = pops::Entity::find()
         .filter(pops::Column::TenantId.eq(scope.tenant_id()))
         .order_by_asc(pops::Column::Name)
+        .limit(500)
         .all(&ctx.db)
         .await?;
 

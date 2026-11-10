@@ -50,6 +50,19 @@ Then sign in at `http://localhost:3000/login`. Public self-registration is delib
 
 The blueprint owns architecture decisions; child issues own bounded implementation deliverables and acceptance evidence.
 
+## Network inventory API
+
+Network location operations require a signed-in user and an active tenant membership. Send the tenant public UUID in the `X-Tenant-ID` header; the API verifies that the authenticated user is an active member before querying or writing tenant-owned rows.
+
+- `GET /api/v1/network/regions`
+- `POST /api/v1/network/regions`
+- `GET /api/v1/network/sites`
+- `POST /api/v1/network/sites`
+- `GET /api/v1/network/pops`
+- `POST /api/v1/network/pops`
+
+List endpoints currently return at most 500 records. Writes require owner/admin/network_admin membership roles. Cursor pagination and the complete permission catalog remain follow-up work.
+
 ## Current status
 
 Implemented: Loco API foundation, PostgreSQL identity/organization/tenant/membership schema, password login and current-user APIs, administrator bootstrap task, Next.js HttpOnly session bridge, and sign-in screen.
