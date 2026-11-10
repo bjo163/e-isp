@@ -268,7 +268,7 @@ export default async function NetworkDevicesPage({
               {state.result.items.map(device => (
                 <tr key={device.id}>
                   <td><code>{device.inventory_key}</code></td>
-                  <td><strong>{device.name}</strong><small>{device.hostname ?? 'HOSTNAME NOT SET'}</small></td>
+                  <td><Link className="inventory-device-link" href={`/network/devices/${encodeURIComponent(device.id)}?tenant=${encodeURIComponent(selectedTenant.tenant_id)}`}><strong>{device.name}</strong><small>{device.hostname ?? 'HOSTNAME NOT SET'}</small></Link></td>
                   <td>{device.device_role.toUpperCase()}</td>
                   <td>{device.management_address ?? 'NOT SET'}</td>
                   <td><span className="inventory-state">{device.lifecycle_status.toUpperCase()}</span></td>
