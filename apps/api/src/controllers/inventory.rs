@@ -399,7 +399,7 @@ async fn create_device(
         Ok(row) => row,
         Err(_) => return bad_request("inventory_key already exists or device data is invalid"),
     };
-    format::json(device_response(&ctx, row).await?)
+    format::json(device_response(&ctx, row, scope.tenant_id()).await?)
 }
 
 async fn list_interfaces(
