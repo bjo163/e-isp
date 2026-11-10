@@ -97,7 +97,7 @@ Example device request:
 
 Supported initial roles: `router`, `switch`, `firewall`, `olt`, `server`, `wireless`, `other`. Lifecycle values: `planned`, `active`, `maintenance`, `retired`. Vendor/model references are optional while the catalog is not yet managed through an API. Management addresses are validated as IPv4 or IPv6.
 
-Interfaces require a stable operator-defined `stable_key`. `if_index` is optional observed identity and must not be treated as permanent. New interface admin and operational states are `unknown`; no telemetry is fabricated. Device and interface lists are bounded to 500 rows until cursor pagination is delivered.
+Interfaces require a stable operator-defined `stable_key`. `if_index` is optional observed identity and must not be treated as permanent. New interface admin and operational states are `unknown`; no telemetry is fabricated. Device and interface lists are bounded to 500 rows until cursor pagination is delivered. The smoke-test coverage for these tables is part of the PostgreSQL 17 clean-database CI job.
 
 ## Docker Compose
 
