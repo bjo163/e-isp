@@ -138,9 +138,11 @@ async fn load_device(
 async fn device_response(
     ctx: &AppContext,
     row: devices::Model,
+    tenant_id: i64,
 ) -> Result<DeviceResponse> {
     let site_id = match row.site_id {
         Some(id) => sites::Entity::find_by_id(id)
+            .filter(sites::Column::TenantId.eq(tenant_id))
             .one(&ctx.db)
             .await?
             .map(|site| site.public_id.to_string()),
@@ -148,6 +150,7 @@ async fn device_response(
     };
     let pop_id = match row.pop_id {
         Some(id) => pops::Entity::find_by_id(id)
+            .filter(pops::Column::TenantId.eq(tenant_id))
             .one(&ctx.db)
             .await?
             .map(|pop| pop.public_id.to_string()),
@@ -202,7 +205,7 @@ async fn list_devices(
 
     let mut response = Vec::with_capacity(rows.len());
     for row in rows {
-        response.push(device_response(&ctx, row).await?);
+        response.push(device_response(&ctx, row, scope.tenant_id()).await?);
     }
     format::json(response)
 }
@@ -253,9 +256,16 @@ async fn create_device(
         return bad_request("unsupported device lifecycle status");
     }
     if let Some(hostname) = params.hostname.as_deref() {
-        if !valid_name(hostname) {
+        if hostname.trim().is_empty() || hostname.len() > 253 {
             return bad_request("invalid hostname");
         }
+    }
+    if params
+        .serial_number
+        .as_deref()
+        .is_some_and(|serial| serial.trim().is_empty() || serial.len() > 128)
+    {
+        return bad_request("invalid serial number");
     }
     let management_address = match params.management_address.as_deref() {
         Some(value) => match value.parse::<IpAddr>() {
@@ -265,7 +275,7 @@ async fn create_device(
         None => None,
     };
 
-    let site_db_id = if let Some(raw) = params.site_id.as_deref() {
+    let mut site_db_id = if let Some(raw) = params.site_id.as_deref() {
         let site_id = match Uuid::parse_str(raw) {
             Ok(value) => value,
             Err(_) => return bad_request("site_id must be a valid UUID"),
@@ -298,7 +308,10 @@ async fn create_device(
                 if site_db_id.is_some_and(|site_id| site_id != pop.site_id) {
                     return bad_request("POP does not belong to the selected site");
                 }
-                Some(pop.site_id)
+                if site_db_id.is_none() {
+                    site_db_id = Some(pop.site_id);
+                }
+                Some(pop.id)
             }
             None => return not_found(),
         }
