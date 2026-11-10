@@ -1,7 +1,7 @@
 import { getApiConnection } from '@/lib/system';
 
 const modules = [
-  { code: 'NET', title: 'Network inventory', detail: 'Devices, interfaces, sites and POPs', state: 'Foundation' },
+  { code: 'NET', title: 'Network inventory', detail: 'Devices, interfaces, sites and POPs', state: 'Scaffold' },
   { code: 'OBS', title: 'Observability', detail: 'Telemetry, traffic and freshness', state: 'Planned' },
   { code: 'TOP', title: 'Topology intelligence', detail: 'Physical, logical and service dependency', state: 'Planned' },
   { code: 'ISP', title: 'Service assurance', detail: 'Subscribers, circuits and SLA', state: 'Planned' },
@@ -78,7 +78,7 @@ export default async function Home() {
               <div className="module-card-top"><span className="module-code">{module.code}</span><span className="module-number">{String(index + 1).padStart(2, '0')}</span></div>
               <h3>{module.title}</h3>
               <p>{module.detail}</p>
-              <div className="module-card-bottom"><span className={module.state === 'Foundation' ? 'module-state state-active' : 'module-state'}>{module.state}</span><span className="module-arrow">↗</span></div>
+              <div className="module-card-bottom"><span className={module.state === 'Scaffold' ? 'module-state state-active' : 'module-state'}>{module.state}</span><span className="module-arrow">↗</span></div>
             </article>
           ))}
         </section>
