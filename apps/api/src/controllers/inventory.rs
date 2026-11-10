@@ -1,9 +1,7 @@
 use crate::{
-    models::_entities::{
-        device_interfaces, device_models, devices, pops, sites, vendors,
-    },
-    services::tenant_context::TenantContext,
+    models::_entities::{device_interfaces, device_models, devices, pops, sites, vendors},
     models::users::Model as User,
+    services::tenant_context::TenantContext,
 };
 use axum::{
     extract::Path,
@@ -227,7 +225,7 @@ async fn get_device(
     let Some(row) = load_device(&ctx, &scope, public_id).await? else {
         return not_found();
     };
-    format::json(device_response(&ctx, row).await?)
+    format::json(device_response(&ctx, row, scope.tenant_id()).await?)
 }
 
 async fn create_device(
@@ -319,8 +317,10 @@ async fn create_device(
         None
     };
 
-    let (vendor_db_id, model_db_id) =
-        match (params.vendor_id.as_deref(), params.device_model_id.as_deref()) {
+    let (vendor_db_id, model_db_id) = match (
+        params.vendor_id.as_deref(),
+        params.device_model_id.as_deref(),
+    ) {
             (Some(vendor_raw), Some(model_raw)) => {
                 let vendor_uuid = match Uuid::parse_str(vendor_raw) {
                     Ok(value) => value,
