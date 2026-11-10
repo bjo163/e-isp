@@ -11,9 +11,10 @@
 
 1. Copy `.env.example` to `.env` and replace all local credentials.
 2. Start PostgreSQL: `docker compose up -d postgres`.
-3. In one terminal, start the Loco API from the repository root: `cargo loco start`.
-4. In another terminal, install and start the web app: `npm install --no-package-lock` then `npm run dev`.
-5. Open `http://localhost:3000`.
+3. Apply pending migrations explicitly when starting from a clean database: `cargo loco db migrate` (development config currently also has `auto_migrate: true`).
+4. In one terminal, start the Loco API from the repository root: `cargo loco start`.
+5. In another terminal, install and start the web app: `npm install --no-package-lock` then `npm run dev`.
+6. Open `http://localhost:3000`.
 
 The API info endpoint is `http://localhost:5150/api/v1/system/info`; the process health endpoint is `http://localhost:5150/api/v1/system/health`.
 
@@ -76,7 +77,7 @@ List endpoints currently return at most 500 records. Cursor pagination, update/d
 - `docker compose down` stops the stack.
 - `docker compose down -v` also destroys local PostgreSQL data.
 
-Compose publishes service ports on loopback only. Do not remove this restriction casually. The sample credentials are for local development, not a shared or production deployment. The production config requires a real `DATABASE_URL`, `JWT_SECRET`, and `HOST`.
+Compose publishes service ports on loopback only. Do not remove this restriction casually. The sample credentials are for local development, not a shared or production deployment. The production config requires a real `DATABASE_URL`, `JWT_SECRET`, and `HOST`. Production migrations are deliberately not automatic; run `cargo loco -e production db migrate` as a controlled deployment step before rolling out the API version that needs the new schema. Check `cargo loco -e production db status` before and after migration.
 
 The collector is bootstrap-only: it reports that the process is alive but does not yet register with a control plane, poll devices, or send telemetry.
 
