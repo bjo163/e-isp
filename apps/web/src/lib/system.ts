@@ -11,11 +11,15 @@ export type ApiConnection =
   | { connected: false; reason: 'unconfigured' | 'unavailable' };
 
 export async function getApiConnection(): Promise<ApiConnection> {
-  const baseUrl = process.env.API_INTERNAL_URL?.trim();
-  if (!baseUrl) return { connected: false, reason: 'unconfigured' };
+  const configuredBaseUrl = process.env.API_INTERNAL_URL?.trim();
+  if (!configuredBaseUrl) return { connected: false, reason: 'unconfigured' };
+
+  const baseUrl = configuredBaseUrl.endsWith('/')
+    ? configuredBaseUrl.slice(0, -1)
+    : configuredBaseUrl;
 
   try {
-    const response = await fetch(`${baseUrl.replace(/\\/$/, '')}/api/v1/system/info`, {
+    const response = await fetch(`${baseUrl}/api/v1/system/info`, {
       cache: 'no-store',
       signal: AbortSignal.timeout(2500),
       headers: { accept: 'application/json' },

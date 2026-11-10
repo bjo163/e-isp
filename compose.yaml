@@ -34,7 +34,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "bash", "-lc", "</dev/tcp/127.0.0.1/5150"]
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:5150/api/v1/system/health"]
       interval: 10s
       timeout: 3s
       retries: 15

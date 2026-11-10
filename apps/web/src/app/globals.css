@@ -1,6 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
-
-:root {
+ :root {
   --bg: #0b0d10;
   --panel: #11151a;
   --panel-raised: #171d23;
@@ -13,8 +11,8 @@
   --orange: #ff7548;
   --blue: #79b7ff;
   --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
-  --display: 'Barlow Condensed', Impact, sans-serif;
-  --body: 'Manrope', Arial, sans-serif;
+  --display: 'Arial Narrow', Impact, sans-serif;
+  --body: 'Segoe UI', Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }

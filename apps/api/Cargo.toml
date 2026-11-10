@@ -11,6 +11,7 @@ async-trait.workspace = true
 loco-rs.workspace = true
 migration = { path = "migration" }
 serde.workspace = true
+tokio.workspace = true
 
 [[bin]]
 name = "e-isp-api"
