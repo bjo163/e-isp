@@ -4,11 +4,11 @@ use crate::{
     services::tenant_context::TenantContext,
 };
 use axum::{
-    extract::Path,
+    extract::{Path, Query},
     http::{HeaderMap, StatusCode},
 };
 use loco_rs::{Error, controller::ErrorDetail, prelude::*};
-use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{ActiveValue, ColumnTrait, Condition, EntityTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use uuid::Uuid;
@@ -51,6 +51,30 @@ struct DeviceResponse {
     pop_id: Option<String>,
     vendor_id: Option<String>,
     device_model_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DeviceListQuery {
+    limit: Option<usize>,
+    after: Option<String>,
+    q: Option<String>,
+    role: Option<String>,
+    lifecycle_status: Option<String>,
+    site_id: Option<String>,
+    pop_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct DevicePage {
+    limit: usize,
+    next_cursor: Option<String>,
+    has_more: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct DeviceListResponse {
+    items: Vec<DeviceResponse>,
+    page: DevicePage,
 }
 
 #[derive(Debug, Serialize)]
@@ -189,23 +213,127 @@ async fn list_devices(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
     headers: HeaderMap,
+    Query(params): Query<DeviceListQuery>,
 ) -> Result<Response> {
     let scope = match resolve_scope(&ctx, &auth, &headers).await {
         Ok(scope) => scope,
         Err(()) => return forbidden("tenant access denied"),
     };
-    let rows = devices::Entity::find()
-        .filter(devices::Column::TenantId.eq(scope.tenant_id()))
-        .order_by_asc(devices::Column::Name)
-        .limit(500)
+
+    let limit = params.limit.unwrap_or(50);
+    if !(1..=100).contains(&limit) {
+        return bad_request("limit must be between 1 and 100");
+    }
+
+    let cursor = match params.after.as_deref() {
+        Some(value) if valid_inventory_key(value) => Some(value.trim()),
+        Some(_) => return bad_request("after must be a valid inventory_key cursor"),
+        None => None,
+    };
+
+    let search = match params.q.as_deref() {
+        Some(value) if value.trim().len() <= 120 => {
+            let trimmed = value.trim();
+            (!trimmed.is_empty()).then_some(trimmed)
+        }
+        Some(_) => return bad_request("q must be at most 120 characters"),
+        None => None,
+    };
+
+    if params.role.as_deref().is_some_and(|value| !valid_role(value)) {
+        return bad_request("unsupported device role filter");
+    }
+    if params
+        .lifecycle_status
+        .as_deref()
+        .is_some_and(|value| !valid_lifecycle(value))
+    {
+        return bad_request("unsupported device lifecycle filter");
+    }
+
+    let mut query = devices::Entity::find()
+        .filter(devices::Column::TenantId.eq(scope.tenant_id()));
+
+    if let Some(cursor) = cursor {
+        query = query.filter(devices::Column::InventoryKey.gt(cursor.to_owned()));
+    }
+    if let Some(role) = params.role.as_deref() {
+        query = query.filter(devices::Column::DeviceRole.eq(role.to_owned()));
+    }
+    if let Some(status) = params.lifecycle_status.as_deref() {
+        query = query.filter(devices::Column::LifecycleStatus.eq(status.to_owned()));
+    }
+    if let Some(search) = search {
+        let search = search.to_owned();
+        query = query.filter(
+            Condition::any()
+                .add(devices::Column::InventoryKey.contains(search.clone()))
+                .add(devices::Column::Name.contains(search.clone()))
+                .add(devices::Column::Hostname.contains(search.clone()))
+                .add(devices::Column::ManagementAddress.contains(search)),
+        );
+    }
+
+    if let Some(raw_site_id) = params.site_id.as_deref() {
+        let public_id = match Uuid::parse_str(raw_site_id) {
+            Ok(value) => value,
+            Err(_) => return bad_request("site_id must be a valid UUID"),
+        };
+        let Some(site) = sites::Entity::find()
+            .filter(sites::Column::PublicId.eq(public_id))
+            .filter(sites::Column::TenantId.eq(scope.tenant_id()))
+            .one(&ctx.db)
+            .await?
+        else {
+            return not_found();
+        };
+        query = query.filter(devices::Column::SiteId.eq(site.id));
+    }
+
+    if let Some(raw_pop_id) = params.pop_id.as_deref() {
+        let public_id = match Uuid::parse_str(raw_pop_id) {
+            Ok(value) => value,
+            Err(_) => return bad_request("pop_id must be a valid UUID"),
+        };
+        let Some(pop) = pops::Entity::find()
+            .filter(pops::Column::PublicId.eq(public_id))
+            .filter(pops::Column::TenantId.eq(scope.tenant_id()))
+            .one(&ctx.db)
+            .await?
+        else {
+            return not_found();
+        };
+        query = query.filter(devices::Column::PopId.eq(pop.id));
+    }
+
+    let mut rows = query
+        .order_by_asc(devices::Column::InventoryKey)
+        .limit((limit + 1) as u64)
         .all(&ctx.db)
         .await?;
-
-    let mut response = Vec::with_capacity(rows.len());
-    for row in rows {
-        response.push(device_response(&ctx, row, scope.tenant_id()).await?);
+    let has_more = rows.len() > limit;
+    if has_more {
+        rows.truncate(limit);
     }
-    format::json(response)
+    let next_cursor = if has_more {
+        rows.last().map(|row| row.inventory_key.clone())
+    } else {
+        None
+    };
+
+    let mut items = Vec::with_capacity(rows.len());
+    for row in rows {
+        items.push(device_response(&ctx, row, scope.tenant_id()).await?);
+    }
+
+    format::json(DeviceListResponse {
+        items,
+        page: DevicePage {
+            limit,
+            next_cursor,
+            has_more,
+        },
+    })
 }
 
 async fn get_device(
