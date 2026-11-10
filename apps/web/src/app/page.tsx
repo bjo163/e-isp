@@ -27,7 +27,7 @@ export default async function Home() {
         <div className="brand-mark">e<span>·</span></div>
         <div className="rail-separator" />
         <a className="rail-link rail-link-active" href="#overview" aria-label="Command center">⌂</a>
-        <a className="rail-link" href="#modules" aria-label="Modules">▦</a>
+        <Link className="rail-link" href="/network/devices" aria-label="Network devices">▦</Link>
         <a className="rail-link" href="https://github.com/bjo163/e-isp/issues/110" aria-label="Execution backlog">☷</a>
         <div className="rail-spacer" />
         <form action="/api/auth/logout" method="post"><button className="rail-link rail-logout" type="submit" aria-label="Sign out">↪</button></form>
