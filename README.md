@@ -70,7 +70,7 @@ Network location and device inventory operations require a signed-in user and an
 - `GET /api/v1/network/devices/{device_id}/interfaces`
 - `POST /api/v1/network/devices/{device_id}/interfaces`
 
-Device and interface records are operator-managed inventory; newly created interface operational state remains `unknown` until real collector evidence exists. List endpoints currently return at most 500 records. Writes require owner/admin/network_admin membership roles. Vendor/model catalog management, cursor pagination, update/delete operations, and the complete permission catalog remain follow-up work.
+Device and interface records are operator-managed inventory; newly created interface operational state remains `unknown` until real collector evidence exists. Device lists support keyset cursor pagination with a default page size of 50 (maximum 100), search, role, lifecycle, site, and POP filters. Interface lists remain bounded to 500 rows. Writes require owner/admin/network_admin membership roles. Vendor/model catalog management, device/interface update/delete operations, site/POP CRUD completion, and the complete permission catalog remain follow-up work.
 
 ## Current status
 
